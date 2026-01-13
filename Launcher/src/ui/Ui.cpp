@@ -175,14 +175,21 @@ static void drawLauncherTab(HWND hwnd, float dpiScale) {
 	if (ImGui::InputText("##GamePath", buf, sizeof(buf))) currentGame.game_path = buf;
 
 	ImGui::SameLine();
-	if (ImGui::Button("Auto-Detect", ImVec2(100 * dpiScale, 0))) {
+	if (ImGui::Button("AutoDetect", ImVec2(100 * dpiScale, 0))) {
 		std::string detected = Utils::Registry::GetGamePathFromRegistry(gameSelectedInt == 1);
 		if (!detected.empty()) {
-			currentGame.game_path = detected;
-			showStatus("Auto-detected game path: " + detected);
+			fs::path exePath = fs::path(detected);
+			if (gameSelectedInt == 0) {
+				exePath /= "PVZ.Main_Win64_Retail.exe"; 
+			}
+			else {
+				exePath /= "GW2.Main_Win64_Retail.exe"; 
+			}
+			currentGame.game_path = exePath.string();
+			showStatus("Auto detected game path: " + currentGame.game_path);
 		}
 		else {
-			showStatus("Could not auto-detect game installation", true);
+			showStatus("Could not auto detect game installation", true);
 		}
 	}
 	ImGui::SameLine();
@@ -307,15 +314,15 @@ static void drawPatcherTab(HWND hwnd, float dpiScale) {
 		}
 
 		ImGui::SameLine();
-		if (ImGui::Button("Auto-Detect", ImVec2(100 * dpiScale, 0))) {
+		if (ImGui::Button("Auto Detect", ImVec2(100 * dpiScale, 0))) {
 			std::string detected = Utils::Registry::GetGamePathFromRegistry(false);
 			if (!detected.empty()) {
 				gw1Config.game_path = detected;
 				save_config(g_config, "config.json");
-				showStatus("Auto-detected GW1 path: " + detected);
+				showStatus("Auto detected GW1 path: " + detected);
 			}
 			else {
-				showStatus("Could not auto-detect GW1 installation", true);
+				showStatus("Could not auto detect GW1 installation", true);
 			}
 		}
 		ImGui::SameLine();
@@ -398,16 +405,16 @@ static void drawPatcherTab(HWND hwnd, float dpiScale) {
 		}
 
 		ImGui::SameLine();
-		if (ImGui::Button("Auto-Detect", ImVec2(100 * dpiScale, 0))) {
+		if (ImGui::Button("Auto Detect", ImVec2(100 * dpiScale, 0))) {
 			std::string detected = Utils::Registry::GetGamePathFromRegistry(true);
 			if (!detected.empty()) {
 				gw2Config.game_path = detected;
 				save_config(g_config, "config.json");
-				showStatus("Auto-detected GW2 path: " + detected);
+				showStatus("Auto detected GW2 path: " + detected);
 				isPatched = Patcher::IsGW2Patched(gw2Config.game_path);
 			}
 			else {
-				showStatus("Could not auto-detect GW2 installation", true);
+				showStatus("Could not auto detect GW2 installation", true);
 			}
 		}
 		ImGui::SameLine();
