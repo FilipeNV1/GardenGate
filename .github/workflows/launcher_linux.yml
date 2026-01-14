@@ -1,7 +1,5 @@
 name: Build Launcher (Linux)
 
-# This workflow is WIP.
-
 on:
   workflow_dispatch:
 

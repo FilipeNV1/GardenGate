@@ -2,15 +2,15 @@
 
 ### Garden warfare 1
 
-1. Put `dinput8.dll` from [releases](https://github.com/nocss42/GardenGate/releases) next to your game's .exe
+1. Download the archive from [releases](https://github.com/nocss42/GardenGate/releases)
 
 2. Install the following mods;
 
 [UnlockAll](../Mods/GW1/UnlockAll.fbmod)
 
-3. Launch the game with the launcher (keep the ip section empty)
+3. Open up the launcher go to patcher and press auto detect > patch (keep the ip section empty)
 
-4. Inject the map loader dll of your choice;
+4. Download map loader dll of your choice;
 
 We recommend;
 
@@ -18,11 +18,13 @@ We recommend;
 
 [PvzShooterHax](https://github.com/natv1337/PVZShooterHax/releases)
 
-5. Press load and your server should be up
+Put the one of your choice to game's directory and name it as `level_loader.dll` and the launcher will auto inject it upon pressing launch.
 
-### Garden warfare 2 [(PLEASE DOWNGRADE YOUR GAME FIRST)](./GW2_DOWNGRADE.md)
+5. Press load map from in-game ui of your dll and your server should be up
 
-1. Put `dinput8.dll` from [releases](https://github.com/nocss42/GardenGate/releases) next to your game's .exe
+### Garden warfare 2
+
+1. Download the archive from [releases](https://github.com/nocss42/GardenGate/releases) 
 
 2. Download the FBPACK from the repository [here](../Mods/GW2/GardenGate.fbpack)
 
@@ -30,11 +32,19 @@ We recommend;
 
 <img src="./Assets/load_order.webp" />
 
-3. Launch the game with the launcher (keep the ip section empty)
+4. Open up the launcher go to patcher and press auto detect > patch (keep the ip section empty)
 
-4. Host any map of your choice through the multiplayer portal
+5. Host any map of your choice through the multiplayer portal
 
-### (Make sure to port forward `25200` or use some sort of VLAN software)
+### Battle for Neighborville
+
+1. Download the archive from [releases](https://github.com/nocss42/GardenGate/releases)
+
+2. Open up the launcher go to patcher and press auto detect > patch (keep the ip section empty)
+
+3. Host any map of your choice through the multiplayer portal
+
+### (Make sure to port forward `25200` or use some sort of VPN software)
 ### RadminVPN or Hamachi, Add your friends to the network and join by the IP it provides.
 
 ### Mod Credits ###

@@ -13,6 +13,9 @@ Experimental private servers for Plants vs. Zombies Garden Warfare 1 & 2
 * Custom unlocker mod that unlocks everything
 
 ### What's not done (TODO):
+* BFN support (launcher and server side)
+* Make launcher rename `EAAntiCheat.GameServiceLauncher.exe` & `installScript.vdf`
+* Custom color for launcher buttons
 * Player kicking/moderation
 * Make launch args real time bc EA App sucks (gw1)
 * Fix return to backyard button (gw2)
