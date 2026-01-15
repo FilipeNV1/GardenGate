@@ -29,6 +29,7 @@ namespace offsets
         DEFINE_PATCH(AllowCommandArgumentsAsOptions, 0x14000D3FA, (std::array<std::uint8_t, 1>{ 0xDE }));
         DEFINE_PATCH(FixLevelReportInstanceIndex, 0x140AE8B99, (std::array<std::uint8_t, 3>{ 0x6A, 0x03, 0x5B }));
         DEFINE_PATCH(FixAvailableConsumables, 0x140B3F69D, (std::array<std::uint8_t, 1>{ 0xC9 }));
+        DEFINE_PATCH(FixHolidayConsumables, 0x140B3F615, (std::array<std::uint8_t, 6>{ 0x90, 0x90, 0x90, 0x90, 0x90, 0x90}));
     }
 
     namespace gw2 {

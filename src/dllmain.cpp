@@ -42,6 +42,7 @@ void Initialize() {
         ApplyPatch(offsets::gw1::patch_AllowCommandArgumentsAsOptions);
         ApplyPatch(offsets::gw1::patch_FixLevelReportInstanceIndex);
         ApplyPatch(offsets::gw1::patch_FixAvailableConsumables);
+        ApplyPatch(offsets::gw1::patch_FixHolidayConsumables);
     }
     else if (gw2_appId.starts_with("PvZGW2"))
     {
