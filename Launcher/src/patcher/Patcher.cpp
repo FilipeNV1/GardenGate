@@ -34,8 +34,7 @@ bool Patcher::IsGW2Patched(const std::string& gamePath) {
     if (!fs::exists(backupExe)) return false;
 
     fs::path gameDir = fs::path(gamePath).parent_path();
-    return fs::exists(gameDir / "dinput8.dll") ||
-        fs::exists(gameDir / ("dinput8.dll" + std::string(DISABLED_DLL)));
+    return fs::exists(gameDir / "dinput8.dll");
 }
 
 bool Patcher::AutoPatchGW2(const std::string& gamePath, const std::string& patchFile, const std::string& dllFile, std::string& errorMessage)
@@ -49,7 +48,9 @@ bool Patcher::AutoPatchGW2(const std::string& gamePath, const std::string& patch
     if (!Utils::FileUtil::copy(gamePath, backupExe, errorMessage)) return false;
 
     fs::path dllTarget = fs::path(gamePath).parent_path() / "dinput8.dll";
-    bool isSameFile = fs::equivalent(dllFile, dllTarget);
+
+    std::error_code ec;
+    bool isSameFile = fs::exists(dllTarget) && fs::equivalent(dllFile, dllTarget, ec);
 
     if (!isSameFile) {
         if (!Utils::FileUtil::copy(dllFile, dllTarget.string(), errorMessage)) {
@@ -65,13 +66,17 @@ bool Patcher::AutoPatchGW2(const std::string& gamePath, const std::string& patch
     std::string tempOutput = gamePath + PATCHED;
     if (!run_xdelta(gamePath, patchFile, tempOutput, errorMessage)) {
         Utils::FileUtil::remove(backupExe);
-        Utils::FileUtil::remove(dllTarget.string());
+        if (!isSameFile) {
+            Utils::FileUtil::remove(dllTarget.string());
+        }
         return false;
     }
 
     if (!Utils::FileUtil::move_replace(tempOutput, gamePath, errorMessage)) {
         Utils::FileUtil::remove(backupExe);
-        Utils::FileUtil::remove(dllTarget.string());
+        if (!isSameFile) {
+            Utils::FileUtil::remove(dllTarget.string());
+        }
         return false;
     }
 
@@ -105,11 +110,7 @@ bool Patcher::RestoreGW2(const std::string& gamePath, std::string& errorMessage)
     fs::path gameDir = fs::path(gamePath).parent_path();
     fs::path dllPath = gameDir / "dinput8.dll";
     if (fs::exists(dllPath)) {
-        std::string dllDisabled = dllPath.string() + DISABLED_DLL;
-        if (fs::exists(dllDisabled)) Utils::FileUtil::remove(dllDisabled);
-        if (!Utils::FileUtil::move_replace(dllPath.string(), dllDisabled, errorMessage)) {
-            Utils::FileUtil::remove(dllPath.string());
-        }
+        Utils::FileUtil::remove(dllPath.string());
     }
 
     fs::path eaAntiCheat = gameDir / "EAAntiCheat.GameServiceLauncher.exe";
