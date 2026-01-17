@@ -14,7 +14,7 @@
 #include "core/Util.h"
 #include "core/Offsets.h"
 
-using DirectInput8Create_t = HRESULT(WINAPI *)(HINSTANCE, DWORD, REFIID, LPVOID*, LPUNKNOWN);
+using DirectInput8Create_t = HRESULT(WINAPI*)(HINSTANCE, DWORD, REFIID, LPVOID*, LPUNKNOWN);
 DirectInput8Create_t g_originalDirectInput8Create = nullptr;
 
 extern "C" __declspec(dllexport) HRESULT WINAPI DirectInput8Create(HINSTANCE hinst, DWORD dwVersion, REFIID riidltf, LPVOID* ppvOut, LPUNKNOWN punkOuter)
@@ -26,17 +26,20 @@ extern "C" __declspec(dllexport) HRESULT WINAPI DirectInput8Create(HINSTANCE hin
     return HRESULT_FROM_WIN32(ERROR_PROC_NOT_FOUND);
 }
 
+inline bool CheckGameId(uintptr_t appIdPtr, std::string_view prefix) {
+    return appIdPtr && std::string_view(reinterpret_cast<const char*>(appIdPtr)).starts_with(prefix);
+}
+
 void Initialize() {
     auto& hm = GG::HookManager::getManager();
+
     hm.initialize();
 
-    std::string_view gw1_appId(reinterpret_cast<const char*>(offsets::gw1::g_AppId));
-    std::string_view gw2_appId(reinterpret_cast<const char*>(offsets::gw2::g_AppId));
-
-    if (gw1_appId.starts_with("PvZ Garden Warfare"))
+    if (CheckGameId(offsets::gw1::g_AppId, "PvZ Garden Warfare"))
     {
         GG_LOG(GG::LogLevel::Info, "Identified: PvZ Garden Warfare");
-
+       
+        g_game->initialize(GG::GameVersion::GW1);
         hm.registerHooks(g_PvZGW1_Hooks);
 
         ApplyPatch(offsets::gw1::patch_AllowCommandArgumentsAsOptions);
@@ -44,14 +47,29 @@ void Initialize() {
         ApplyPatch(offsets::gw1::patch_FixAvailableConsumables);
         ApplyPatch(offsets::gw1::patch_FixHolidayConsumables);
     }
-    else if (gw2_appId.starts_with("PvZGW2"))
+    else if (CheckGameId(offsets::gw2::g_AppId, "PvZGW2"))
     {
         GG_LOG(GG::LogLevel::Info, "Identified: PvZ Garden Warfare 2");
 
+        g_game->initialize(GG::GameVersion::GW2);
         hm.registerHooks(g_PvZGW2_Hooks);
 
         ApplyPatch(offsets::gw2::patch_AllowCommandArgumentsAsOptions);
         ApplyPatch(offsets::gw2::patch_PlayerNameFormatting);
+    }
+    else if (CheckGameId(offsets::gw3::g_AppId, "PvZGW3")) {
+        GG_LOG(GG::LogLevel::Info, "Identified: PvZ Garden Warfare 3");
+        GG_LOG(GG::LogLevel::Info, "Identified: ....lol...just kidding...");
+        GG_LOG(GG::LogLevel::Info, "Identified: PvZ Battle for Neighborville");
+
+        g_game->initialize(GG::GameVersion::GW3);
+        hm.registerHooks(g_PvZGW3_Hooks);
+
+        ApplyPatch(offsets::gw3::patch_AllowCommandArgumentsAsOptions);
+        ApplyPatch(offsets::gw3::patch_IgnoreEasyAntiCheat);
+        ApplyPatch(offsets::gw3::patch_StartMenuToIngame);
+        ApplyPatch(offsets::gw3::patch_Killswitches);
+        ApplyPatch(offsets::gw3::patch_OfflineFix);
     }
     else {
         GG_FATAL("Could not identify game!");
@@ -60,7 +78,6 @@ void Initialize() {
 
 DWORD WINAPI ggThread(LPVOID hInstance) {
     g_game = std::make_unique<GG::Game>();
-    g_game->initialize();
 
     g_program = std::make_unique<Program>();
     g_program->initialize();

@@ -7,9 +7,21 @@ namespace fb
     class SocketManagerFactory
     {
     public:
-        virtual SocketManager *createSocketManager()
+        virtual SocketManager* createSocketManager()
         {
             return new SocketManager();
         }
     };
+
+    namespace gw3
+    {
+        class SocketManagerFactory
+        {
+        public:
+            virtual SocketManager* createSocketManager()
+            {
+                return new SocketManager();
+            }
+        };
+    }
 }

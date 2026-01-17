@@ -13,32 +13,39 @@
 
 namespace GG
 {
+    enum class GameVersion
+    {
+        GW1,
+        GW2,
+        GW3
+    };
+
     class Game
     {
     public:
-        void initialize()
+        void initialize(GameVersion version)
         {
-            m_socketManager = new fb::SocketManager();
+            m_version = version;
+            m_socketManager = (version == GameVersion::GW3) 
+                ? static_cast<fb::ISocketManager*>(new fb::gw3::SocketManager())
+                : static_cast<fb::ISocketManager*>(new fb::SocketManager());
         }
 
         void uninitialize();
 
-        void onServerCreate(intptr_t inst, fb::ServerSpawnInfo& info) {
-            if (info.isLocalHost) {
-                m_hosting = false;
-                m_joining = false;
-            }
-            else {
-                m_hosting = true;
-            }
-
+        void onServerCreate(intptr_t inst, fb::ServerSpawnInfo& info)
+        {
             m_serverInst = inst;
+            m_hosting = !info.isLocalHost;
+            if (info.isLocalHost) m_joining = false;
         }
 
-        fb::SocketManager* getSocketManager() { return m_socketManager; }
-
+        fb::ISocketManager* getSocketManager() { return m_socketManager; }
         bool isJoiningOrHosting() { return m_hosting || m_joining; }
         bool isHosting() { return m_hosting; }
+        bool isJoining() { return m_joining; }
+        void setJoining(bool joining) { m_joining = joining; }
+        void setHosting(bool hosting) { m_hosting = hosting; }
 
         void logServerSpawnInfo(const fb::ServerSpawnInfo& info)
         {
@@ -79,10 +86,10 @@ namespace GG
 
         void injectSocketManagerFactory(intptr_t inst, std::size_t offset)
         {
-            *reinterpret_cast<__int64*>(inst + offset) = 
-                reinterpret_cast<__int64>(new fb::SocketManagerFactory());
-            
-            GG_LOG(LogLevel::Debug, "Injected SocketManagerFactory at offset 0x%zX", offset);
+            void* factory = (m_version == GameVersion::GW3)
+                ? static_cast<void*>(new fb::gw3::SocketManagerFactory())
+                : static_cast<void*>(new fb::SocketManagerFactory());
+            *reinterpret_cast<__int64*>(inst + offset) = reinterpret_cast<__int64>(factory);
         }
 
         const char* redirectHostingAddress(const char* ipAddress)
@@ -100,13 +107,13 @@ namespace GG
 
         const char* adjustPeerAddress(const char* address, std::string_view port)
         {
-            if (!isHosting())
+            if (!isJoiningOrHosting())
                 return address;
 
             if (port == "25200")
                 return "0.0.0.0:25200";
             if (port == "25100")
-                return "127.0.0.1:25100";
+                return "0.0.0.0:25100";
             
             return address;
         }
@@ -136,10 +143,11 @@ namespace GG
         }
 
     private:
+        GameVersion m_version{GameVersion::GW2};
         intptr_t m_serverInst{0};
         bool m_hosting{false};
         bool m_joining{false};
-        fb::SocketManager* m_socketManager{0};
+        fb::ISocketManager* m_socketManager{nullptr};
     };
 }
 

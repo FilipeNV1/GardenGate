@@ -10,7 +10,7 @@
 #endif
 
 #ifndef GG_VERSION_PATCH
-    #define GG_VERSION_PATCH 1
+    #define GG_VERSION_PATCH 2
 #endif
 
 #define GG_STRINGIFY_IMPL(x) #x

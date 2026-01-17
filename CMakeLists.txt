@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(GardenGate VERSION 0.1.0 LANGUAGES CXX)
+project(GardenGate VERSION 0.1.2 LANGUAGES CXX)
 
 add_library(${PROJECT_NAME} SHARED)
 

@@ -47,6 +47,34 @@ namespace offsets
 
         DEFINE_PATCH(AllowCommandArgumentsAsOptions, 0x1401328DA, (std::array<std::uint8_t, 1>{ 0xE6 }));
         DEFINE_PATCH(PlayerNameFormatting, 0x1422DC782, (std::array<std::uint8_t, 3>{ 0x00, 0x00, 0x00}));
+        DEFINE_PATCH(OnlineKillSwitch, 0x140B8F86F, (std::array<std::uint8_t, 2>{ 0x90, 0x90 }));
+        DEFINE_PATCH(FixAvailableConsumables, 0x140E0A8F0, (std::array<std::uint8_t, 3>{ 0xB0, 0x01, 0xC3 }));
+    }
+
+    namespace gw3 {
+        //--- PvZ: BFN
+        DEFINE_INSTANCE(AppId, 0x14321EB58);
+        DEFINE_INSTANCE(SettingsManager, 0x14421BFD0);
+        DEFINE_INSTANCE(PVZOnlineSettings, 0x144E101D0);
+        DEFINE_INSTANCE(PVZServerSettings, 0x144DD8E30);
+        DEFINE_INSTANCE(GameModeSettings, 0x144E101D0);
+        DEFINE_INSTANCE(NetObjectSettings, 0x144C80250);
+
+        DEFINE_FUNCTION(GetOptionParameter, 0x1404681C0);
+        DEFINE_FUNCTION(GetSettings, 0x14046F230);
+        DEFINE_FUNCTION(ServerStart, 0x140F23240);
+        DEFINE_FUNCTION(ClientInitNetwork, 0x140F0ACE0);
+        DEFINE_FUNCTION(ClientConnectToAddress, 0x140F3B480);
+        DEFINE_FUNCTION(NetworkEnginePeerInit, 0x1410FDE90);
+        DEFINE_FUNCTION(OnEvent, 0x14155DF60);
+        DEFINE_FUNCTION(PeerHasJoined, 0x140F55A00);
+        DEFINE_FUNCTION(GetPlayerName, 0x14155DCA0);
+
+        DEFINE_PATCH(AllowCommandArgumentsAsOptions, 0x142218419, (std::array<std::uint8_t, 1>{ 0xA7 }));
+        DEFINE_PATCH(IgnoreEasyAntiCheat, 0x1417fd2d8, (std::array<std::uint8_t, 1>{ 0xEB }));
+        DEFINE_PATCH(StartMenuToIngame, 0x141776DD0, (std::array<std::uint8_t, 15>{ 0xE8, 0x1B, 0x1E, 0xE3, 0xFF, 0x48, 0xC7, 0xC0, 0x01, 0x00, 0x00, 0x00, 0xC3, 0x90, 0x90 }));        
+        DEFINE_PATCH(OfflineFix, 0x1415704D0, (std::array<std::uint8_t, 3>{ 0xB0, 0x01, 0xC3 }));
+        DEFINE_PATCH(Killswitches, 0x1417288A9, (std::array<std::uint8_t, 3>{ 0xE9, 0xBA, 0x00 }));
     }
 
     template <class T>
