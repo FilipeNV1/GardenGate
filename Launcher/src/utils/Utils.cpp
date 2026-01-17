@@ -133,6 +133,11 @@ namespace Utils {
 			return out.str();
 		}
 
+		static std::string NormalizeDataPath(const std::string& dataPath) {
+			if (dataPath.empty()) return dataPath;
+			return fs::path(dataPath).make_preferred().string();
+		}
+
 		std::string BuildArgs(const Config& cfg) {
 			const GameConfig& game = cfg.get_current_game();
 			std::vector<std::string> argList;
@@ -156,9 +161,20 @@ namespace Utils {
 		}
 
 		static std::map<std::string, std::string> originalArgs;
+		static const std::string kMissingMarker = "__GG__MISSING__";
 
 		void PatchEAArgs(const std::string& args, bool isGW2) {
 			fs::path eaDir = fs::path(getenv("LOCALAPPDATA")) / "Electronic Arts" / "EA Desktop";
+			const std::vector<std::string> gw1Keys = {
+				"user.gamecommandline.ofb-east:109551084",
+				"user.gamecommandline.ofb-east:109550787",
+				"user.gamecommandline.ofb-east:109552442"
+			};
+			const std::vector<std::string> gw2Keys = {
+				"user.gamecommandline.origin.ofr.50.0001051",
+				"user.gamecommandline.origin.ofr.50.0000786"
+			};
+			const auto& keys = isGW2 ? gw2Keys : gw1Keys;
 
 			std::string cleanedArgs = args;
 			if (!cleanedArgs.empty()) {
@@ -172,21 +188,41 @@ namespace Utils {
 
 					std::string line, output;
 					bool modified = false;
+					std::map<std::string, bool> foundKeys;
+					for (const auto& key : keys) {
+						foundKeys[key] = false;
+					}
 
 					while (std::getline(in, line)) {
-						if (line.rfind("user.gamecommandline.ofb-east:", 0) == 0) {
-							auto pos = line.find('=');
-							if (pos != std::string::npos) {
-								if (originalArgs.find(entry.path().string()) == originalArgs.end()) {
-									originalArgs[entry.path().string()] = line.substr(pos + 1);
+						for (const auto& key : keys) {
+							if (line.rfind(key + "=", 0) == 0) {
+								foundKeys[key] = true;
+								auto pos = line.find('=');
+								if (pos != std::string::npos) {
+									std::string mapKey = entry.path().string() + "|" + key;
+									if (originalArgs.find(mapKey) == originalArgs.end()) {
+										originalArgs[mapKey] = line.substr(pos + 1);
+									}
+									line = line.substr(0, pos + 1) + cleanedArgs;
+									modified = true;
 								}
-								line = line.substr(0, pos + 1) + cleanedArgs;
-								modified = true;
+								break;
 							}
 						}
 						output += line + "\n";
 					}
 					in.close();
+
+					for (const auto& key : keys) {
+						if (!foundKeys[key]) {
+							std::string mapKey = entry.path().string() + "|" + key;
+							if (originalArgs.find(mapKey) == originalArgs.end()) {
+								originalArgs[mapKey] = kMissingMarker;
+							}
+							output += key + "=" + cleanedArgs + "\n";
+							modified = true;
+						}
+					}
 
 					if (modified) {
 						std::ofstream out(entry.path(), std::ios::trunc);
@@ -198,14 +234,23 @@ namespace Utils {
 
 		void RestoreEAArgs() {
 			for (const auto& [filePath, originalValue] : originalArgs) {
-				std::ifstream in(filePath);
+				auto splitPos = filePath.rfind('|');
+				if (splitPos == std::string::npos) continue;
+				std::string path = filePath.substr(0, splitPos);
+				std::string key = filePath.substr(splitPos + 1);
+
+				std::ifstream in(path);
 				if (!in) continue;
 
 				std::string line, output;
 				bool modified = false;
 
 				while (std::getline(in, line)) {
-					if (line.rfind("user.gamecommandline.ofb-east:", 0) == 0) {
+					if (line.rfind(key + "=", 0) == 0) {
+						if (originalValue == kMissingMarker) {
+							modified = true;
+							continue;
+						}
 						auto pos = line.find('=');
 						if (pos != std::string::npos) {
 							line = line.substr(0, pos + 1) + originalValue;
@@ -217,7 +262,7 @@ namespace Utils {
 				in.close();
 
 				if (modified) {
-					std::ofstream out(filePath, std::ios::trunc);
+					std::ofstream out(path, std::ios::trunc);
 					out << output;
 				}
 			}
@@ -302,47 +347,74 @@ namespace Utils {
 		{
 			KillProcessByName("EADesktop.exe");
 			KillProcessByName("Origin.exe");
+			LaunchResult lr;
+			const std::string normalizedModDataPath = NormalizeDataPath(modDataPath);
+			auto appendDataPathArg = [&](std::string& argStr) {
+				if (normalizedModDataPath.empty()) return;
+				if (!argStr.empty()) argStr += " ";
+				argStr += "-dataPath " + normalizedModDataPath;
+			};
 			
 			bool isSteamCopy = isGW2 && Registry::IsSteamCopy(exePath);
-			
-			if (isGW2 && isSteamCopy) {
-				KillProcessByName("steam.exe");
-			}
-
-			LaunchResult lr;
-			
 			if (isSteamCopy) {
-			std::string launchArgs = args;
-			if (!modDataPath.empty()) {
-				if (!launchArgs.empty()) launchArgs += " ";
-				launchArgs += "-dataPath " + modDataPath;
-			}
-			
-			std::string steamUrl = "steam://rungameid/1922560";
-			if (!launchArgs.empty()) {
-				steamUrl += "//" + UrlEncode(launchArgs);
+				KillProcessByName("steam.exe");
+				std::string launchArgs = args;
+				appendDataPathArg(launchArgs);
+
+				std::string steamUrl = "steam://rungameid/1922560";
+				if (!launchArgs.empty()) {
+					steamUrl += "//" + UrlEncode(launchArgs);
+				}
+
 				HINSTANCE result = ShellExecuteA(nullptr, "open", steamUrl.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
-				
 				if ((INT_PTR)result <= 32) {
 					lr.error = "Failed to launch via Steam. Error code: " + std::to_string((INT_PTR)result);
 					return lr;
 				}
-				
+
 				lr.ok = true;
 				return lr;
 			}
-		}
+
+			bool hasInstaller = false;
+			if (isGW2 && !exePath.empty()) {
+				fs::path gameDir = fs::path(exePath).parent_path();
+				hasInstaller = fs::exists(gameDir / "__Installer");
+			}
+
+			if (isGW2 && hasInstaller) {
+				std::string launchArgs = args;
+				appendDataPathArg(launchArgs);
+				PatchEAArgs(launchArgs, isGW2);
+
+				std::string originUrl = "origin://launchgame/1026482";
+				HINSTANCE result = ShellExecuteA(nullptr, "open", originUrl.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+
+				if ((INT_PTR)result <= 32) {
+					lr.error = "Failed to launch via Origin. Error code: " + std::to_string((INT_PTR)result);
+					return lr;
+				}
+
+				lr.ok = true;
+				return lr;
+			}
 			
 		STARTUPINFOA si = { sizeof(si) };
 		PROCESS_INFORMATION pi{};
 
-			std::string cmdLineStr = "\"" + exePath + "\" " + args;
+			std::string effectiveArgs = args;
+			if (isGW2) {
+				appendDataPathArg(effectiveArgs);
+			}
+
+			std::string cmdLineStr = "\"" + exePath + "\" " + effectiveArgs;
 			std::vector<char> cmdLine(cmdLineStr.begin(), cmdLineStr.end());
 			cmdLine.push_back('\0');
 
 			LPVOID envBlock = nullptr;
-			if (!modDataPath.empty()) {
-				std::string envVar = "GAME_DATA_DIR=" + modDataPath;
+			if (!normalizedModDataPath.empty() && !isGW2) {
+				std::string envVarDir = "GAME_DATA_DIR=" + normalizedModDataPath;
+				std::string envVarPath = "GAME_DATA_PATH=" + normalizedModDataPath;
 				std::string envStr;
 				
 				LPCH envStrings = GetEnvironmentStringsA();
@@ -356,7 +428,9 @@ namespace Utils {
 					FreeEnvironmentStringsA(envStrings);
 				}
 				
-				envStr += envVar;
+				envStr += envVarDir;
+				envStr += '\0';
+				envStr += envVarPath;
 				envStr += '\0';
 				envStr += '\0';
 				
