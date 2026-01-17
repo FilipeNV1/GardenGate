@@ -4,6 +4,9 @@
 #include <filesystem>
 #include <map>
 #include <algorithm>
+#include <cctype>
+#include <iomanip>
+#include <sstream>
 #include <shlobj.h>
 #include <shellapi.h>
 #include <shlwapi.h>
@@ -14,6 +17,24 @@ namespace fs = std::filesystem;
 
 namespace Utils {
 	namespace Registry {
+		bool IsSteamCopy(const std::string& exePath) {
+			if (exePath.empty()) return false;
+			
+			std::string lowerPath = exePath;
+			std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(), ::tolower);
+			
+			if (lowerPath.find("steamapps") != std::string::npos) {
+				return true;
+			}
+			
+			fs::path gameDir = fs::path(exePath).parent_path();
+			if (fs::exists(gameDir / "steam_appid.txt")) {
+				return true;
+			}
+			
+			return false;
+		}
+		
 		std::string GetGamePathFromRegistry(bool isGW2) {
 			HKEY hKey = NULL;
 			LONG result = 0;
@@ -96,6 +117,21 @@ namespace Utils {
 	}
 
 	namespace Process {
+		static std::string UrlEncode(const std::string& input) {
+			std::ostringstream out;
+			out << std::uppercase << std::hex;
+			for (unsigned char c : input) {
+				if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+					c == '-' || c == '_' || c == '.' || c == '~')
+				{
+					out << c;
+				}
+				else {
+					out << '%' << std::setw(2) << std::setfill('0') << (int)c;
+				}
+			}
+			return out.str();
+		}
 
 		std::string BuildArgs(const Config& cfg) {
 			const GameConfig& game = cfg.get_current_game();
@@ -267,13 +303,38 @@ namespace Utils {
 			KillProcessByName("EADesktop.exe");
 			KillProcessByName("Origin.exe");
 			
-			if (isGW2) {
+			bool isSteamCopy = isGW2 && Registry::IsSteamCopy(exePath);
+			
+			if (isGW2 && isSteamCopy) {
 				KillProcessByName("steam.exe");
 			}
 
 			LaunchResult lr;
-			STARTUPINFOA si = { sizeof(si) };
-			PROCESS_INFORMATION pi{};
+			
+			if (isSteamCopy) {
+			std::string launchArgs = args;
+			if (!modDataPath.empty()) {
+				if (!launchArgs.empty()) launchArgs += " ";
+				launchArgs += "-dataPath " + modDataPath;
+			}
+			
+			std::string steamUrl = "steam://rungameid/1922560";
+			if (!launchArgs.empty()) {
+				steamUrl += "//" + UrlEncode(launchArgs);
+				HINSTANCE result = ShellExecuteA(nullptr, "open", steamUrl.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+				
+				if ((INT_PTR)result <= 32) {
+					lr.error = "Failed to launch via Steam. Error code: " + std::to_string((INT_PTR)result);
+					return lr;
+				}
+				
+				lr.ok = true;
+				return lr;
+			}
+		}
+			
+		STARTUPINFOA si = { sizeof(si) };
+		PROCESS_INFORMATION pi{};
 
 			std::string cmdLineStr = "\"" + exePath + "\" " + args;
 			std::vector<char> cmdLine(cmdLineStr.begin(), cmdLineStr.end());

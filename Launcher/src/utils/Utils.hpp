@@ -10,6 +10,7 @@ namespace Utils {
 
 	namespace Registry {
 		std::string GetGamePathFromRegistry(bool isGW2);
+		bool IsSteamCopy(const std::string& exePath);
 	}
 
 	namespace Dialog {
