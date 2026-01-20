@@ -142,9 +142,20 @@ namespace GG
             GG_LOG(LogLevel::Info, "Peer joined - %s", player);
         }
 
+        void setPrimaryUser(intptr_t user)
+        {
+            m_primaryUser = user;
+        }
+
+        intptr_t getPrimaryUser()
+        {
+            return m_primaryUser;
+        }
+
     private:
         GameVersion m_version{GameVersion::GW2};
         intptr_t m_serverInst{0};
+        intptr_t m_primaryUser{0};
         bool m_hosting{false};
         bool m_joining{false};
         fb::ISocketManager* m_socketManager{nullptr};

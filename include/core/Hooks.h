@@ -213,7 +213,6 @@ namespace fb
             reinterpret_cast<tGetOptionParameter>(offsets::gw3::fn_GetOptionParameter);
 
         using tGetSettings = intptr_t(*)(intptr_t, intptr_t);
-
         template <typename T>
         inline T* GetSettings(intptr_t settingsManager, intptr_t settingsInstance)
         {
@@ -223,6 +222,12 @@ namespace fb
             intptr_t ret = fn(mgr, settingsInstance);
             return reinterpret_cast<T*>(ret);
         }
+
+        using tfbString = void(*)(intptr_t, const char*, unsigned int);
+        inline tfbString fbString = reinterpret_cast<tfbString>(offsets::gw3::fn_fbString);
+
+        using tUserAdded = void(*)(void*, void**, unsigned int);
+        inline tUserAdded UserAdded = reinterpret_cast<tUserAdded>(offsets::gw3::fn_UserAdded);
 
         intptr_t ServerStart(intptr_t inst, ServerSpawnInfo& info, ServerSpawnOverrides* spawnOverrides, fb::ISocketManager* socketManager) {
             const auto trampoline = GG::HookManager::getManager().Call(&ServerStart);
@@ -261,7 +266,6 @@ namespace fb
             std::string_view levelName(levelSetup->Name);
 
             g_game->prepareServerSpawn(inst, info, spawnOverrides);
-
 
             if (!levelName.starts_with("Levels/Level_Picnic_Splash/Level_Picnic_Splash")) {
                 GG_LOG(GG::LogLevel::Debug, "Forcing non-localhost");
@@ -357,13 +361,32 @@ namespace fb
                     serverSettings->KickIdlePlayers = false;
 
                     auto pvzOnlineSettings = GetSettings<PVZOnlineSettings>(offsets::gw3::g_SettingsManager, offsets::gw3::g_PVZOnlineSettings);
-                    pvzOnlineSettings->ClientIsPresenceEnabled = false;
                     pvzOnlineSettings->ServerAllowAnyReputation = true;
 
                     auto gameModeSettings = GetSettings<GameModeSettings>(offsets::gw3::g_SettingsManager, offsets::gw3::g_GameModeSettings);
                     gameModeSettings->ShouldSkipHUBTutorial = true;
                     gameModeSettings->SocialHUBSkipStationTutorials = true;
                     gameModeSettings->SocialHUBSkipLandingPage = true;
+
+                    void* user = reinterpret_cast<void*>(g_game->getPrimaryUser());
+                    UserAdded(nullptr, &user, 0);
+
+                    break;
+                }
+
+                case 0x1e86c1d6: {
+                    if (!::splash) {
+                        auto gameSettings = GetSettings<GameSettings>(offsets::gw3::g_SettingsManager, offsets::gw3::g_GameSettings);
+                        auto level = "Levels/Level_Picnic_Root/Level_Picnic_Root";
+                        auto dsub = "Levels/DSub_SocialSpace/DSub_SocialSpace";
+                        auto start = "StartPoint_SocialSpace";
+                        auto inclusion = "GameMode=Mode_SocialSpace;HostedMode=PeerHosted";
+                        
+                        fbString(reinterpret_cast<intptr_t>(&gameSettings->Level), level, (int)strlen(level));
+                        fbString(reinterpret_cast<intptr_t>(&gameSettings->InitialDSubLevel), dsub, (int)strlen(dsub));
+                        fbString(reinterpret_cast<intptr_t>(&gameSettings->StartPoint), start, (int)strlen(start));
+                        fbString(reinterpret_cast<intptr_t>(&gameSettings->DefaultLayerInclusion), inclusion, (int)strlen(inclusion));                        
+                    }
 
                     break;
                 }
@@ -399,6 +422,16 @@ namespace fb
 
             return name;
         }
+
+        intptr_t CreateUser(intptr_t inst, int type, intptr_t handle, intptr_t alloc)
+        {
+            const auto trampoline = GG::HookManager::getManager().Call(&CreateUser);
+            auto ret = trampoline(inst, type, handle, alloc);
+
+            g_game->setPrimaryUser(ret);
+            
+            return ret;
+        }
     }
 }
 
@@ -431,4 +464,5 @@ static GG::HookTemplate g_PvZGW3_Hooks[] = {
     {offsets::gw3::fn_OnEvent,                  reinterpret_cast<void*>(fb::gw3::onEvent),                  true},
     {offsets::gw3::fn_PeerHasJoined,            reinterpret_cast<void*>(fb::gw3::PeerHasJoined),            true},
     {offsets::gw3::fn_GetPlayerName,            reinterpret_cast<void*>(fb::gw3::GetPlayerName),            true},
+    {offsets::gw3::fn_CreateUser,               reinterpret_cast<void*>(fb::gw3::CreateUser),               true},
 };

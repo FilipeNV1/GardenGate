@@ -31,6 +31,10 @@ inline bool CheckGameId(uintptr_t appIdPtr, std::string_view prefix) {
 }
 
 void Initialize() {
+    g_game = std::make_unique<GG::Game>();
+    g_program = std::make_unique<Program>();
+    g_program->initialize();
+
     auto& hm = GG::HookManager::getManager();
 
     hm.initialize();
@@ -67,9 +71,9 @@ void Initialize() {
 
         ApplyPatch(offsets::gw3::patch_AllowCommandArgumentsAsOptions);
         ApplyPatch(offsets::gw3::patch_IgnoreEasyAntiCheat);
-        ApplyPatch(offsets::gw3::patch_StartMenuToIngame);
         ApplyPatch(offsets::gw3::patch_Killswitches);
         ApplyPatch(offsets::gw3::patch_OfflineFix);
+        ApplyPatch(offsets::gw3::patch_UnlockAwards);
     }
     else {
         GG_FATAL("Could not identify game!");
@@ -77,13 +81,6 @@ void Initialize() {
 }
 
 DWORD WINAPI ggThread(LPVOID hInstance) {
-    g_game = std::make_unique<GG::Game>();
-
-    g_program = std::make_unique<Program>();
-    g_program->initialize();
-
-    Initialize();
-
     g_program->run();
     g_program->uninitialize();
 
@@ -118,6 +115,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved [[ma
 
         if (!hookDinput8())
             std::cerr << "Failed to hook dinput8.dll" << std::endl;
+
+        Initialize();
 
         HANDLE threadHandle = CreateThread(nullptr, 0, ggThread, hinstDLL, 0, nullptr);
         if (threadHandle) CloseHandle(threadHandle);

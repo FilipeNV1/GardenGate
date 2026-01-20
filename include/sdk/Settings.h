@@ -247,10 +247,8 @@ namespace fb
             char* SoloPlayMode;
         } GameModeConfiguration;
 
-        typedef struct GameModeSettings
+        typedef struct GameModeSettings : SettingsBase
         {
-            SettingsBase base;
-
             int32_t ShouldLoadAutoTestSubLevels;
             TeamColor* TeamHighlightColors;
             GameModeConfiguration* GameModeConfiguration;
@@ -395,6 +393,45 @@ namespace fb
             bool CanAITaunt;
         } GameModeSettings;
 
+        typedef struct GameSettings : SettingsBase
+        {
+            char* InstallationLevel;
+            intptr_t Player;
+            intptr_t Version;
+            intptr_t GameModeViewDefinitions;
+            intptr_t LayerInclusionTable;
+            intptr_t GameSettingsComponents;
+
+            uint32_t LogFileRotationHistoryLength;
+            uint32_t MaxCorrectionUpdateCount;
+            uint32_t MoveManagerOutgoingFrequencyDivider;
+
+            char* DefaultLayerInclusion;
+            char* InitialDSubLevel;
+            char* ActiveGameModeViewDefinition;
+            char* InstallationStartPoint;
+
+            float MaxAllowedLatency;
+
+            char* Level;
+            char* StartPoint;
+
+            int LogFileCollisionMode;
+
+            uint32_t MaxPlayerCount;
+            uint32_t MaxSpectatorCount;
+
+            float TimeToWaitForQuitTaskCompletion;
+
+            uint32_t MoveManagerSinglePlayerOutgoingFrequencyDivider;
+
+            bool EnableAutomaticCorrectionUpdateCount;
+            bool ResourceRefreshAlwaysAllowed;
+            bool LogFileEnable;
+            bool DisableToggleEntryCamera;
+            bool DebugFreeCamEnabled;
+        } GameSettings;
+
         typedef struct OnlineSettings : SettingsBase
         {         
             uint32_t BlazeCachedUserRefreshInterval;
@@ -450,9 +487,9 @@ namespace fb
             bool WaitForQoS;
             bool EnableNucleusLtOverride;
             bool IsSecure;
-            bool ShouldControlBlaze;          /* 0x114 */
+            bool ShouldControlBlaze;
             bool ClientIsPresenceEnabled;
-            bool ServerAllowAnyReputation;    /* 0x11A */
+            bool ServerAllowAnyReputation;
             bool EnableQoS;
             bool SupportHostMigration;
             bool ServerIsReconfigurable;
@@ -640,19 +677,94 @@ namespace fb
             BattleArenaSeasonInfo* BattleArenaSeasonInfos;
 
             uint64_t StreamingDataCacheMaxAgeSeconds;
-            EntitlementQuery* EntitlementQueries;
+            EntitlementQuery** EntitlementQueries;
 
             GameBrowserConfig GameBrowser;
             BugSentryOnlineSettings BugSentrySettings;
             BlazeClientNotificationManagerSettings BlazeClientNotificationManager;
             MandatedVersionSettings MandatedVersion;
 
+            float  BattleArenaMaxPenalty;
+            char* SocialSpaceDSubName;
+            uint32_t StreamingDataCacheMaxSizeMb;
+            char* TrialModeExpiredLicenseString;
+            char* MatchmakingTokenPatchSuffix;
+            char* SocialSpaceStartPoint;
+            char* BattleArenaPenaltyExpiryStatId;
+            char* PurchaseCoinsButtonLicenseOverride;
+            float  TrialTimeDataStartTime;
+            int32_t GameReportInterval;
+            char* GameConfigurationUrl;
+            char* ConnectionLevel;
+            int32_t StoreRefreshRetryMaxDelay;
+            char* CreditsPath;
+            char* EditorialRootUrl;
+            int32_t StoreRefreshRetryDelay;
+            float  MaxTrialTime;
+            char* TrialModePurchaseId;
+            int32_t RpcRetryMaxDelay;
+            int32_t StoreInterruptedPurchaseRetries;
+            uint32_t PingPeriod;
+            int32_t QueueCapacityOverride;
+            float  TrialTimeDataPollTime;
+            int32_t BattleArenaPointsBetweenRanks;
+            float  OnlinePeerGameReserveTimeOut;
+            float  ClientStartedAndWaitingFailSafeTimer;
+            int32_t GroupReserveWaitForJoiningSessionTimeout;
+            float  TrialModeTimeModifier;
+            float  UpdatePermissionsTimeOut;
+            char* PodiumDSubName;
+            float  RespawnDelayTimeoutSeconds;
+            int32_t ClientStoreEntityRefreshDelaySeconds;
+            int32_t OriginProfileRefreshPeriodSeconds;
+            int32_t StoreRefreshPeriodSeconds;
+            int32_t RpcRetryDelay;
+            int32_t BlazeClientSettingsRetryTime;
+            int32_t StoreInterruptedPurchaseBusySeconds;
+            char* SocialSpaceGameModeInclusion;
+            int32_t RpcRandomOffsetMaxDelay;
+            float  DisconnectFailSafeTimer;
+            char* ClientGameConfigurationOverride;
+            float  PrivilegeCacheTimeOut;
+            char* ContentBaseUrl;
+            char* LevelRootName;
+            int32_t ClientStoreEntityTimerExpiredRefreshDelaySeconds;
+            char* MatchmakingTokenSuffix;
+            char* StreamingDataCacheSubDir;
+            float  GroupSwitchTimeOut;
+            int32_t GroupReservationRenewPeriodWhileQueued;
+            char* ConnectionLevelLayerInclusion;
+
+            bool ClientStoreEntityRefreshEnabled;
+            bool AllowMissionActiveJoin;
+            bool RestrictSplitscreenLeaders;
+            bool GlobalMatchmaking;
+            bool KickPlayerOnStatsDownloadFailure;
+            bool ForceEndTrial;
+            bool AllowFirstPartyGuestUser;
+            bool StorePurchaseNotActiveRefreshEnabled;
+            bool ForceDisableTrial;
+            bool RichPresenceEnabled;
+            bool TelemetryPCKillSwitch;
+            bool TelemetryXBoneKillSwitch;
+            bool NoPrivilegeMatchmaking;
+            bool IsTrialMode;
+            bool StoreFailedRefreshEnabled;
+            bool PurchaseCoinsButtonEnabled;
+            bool PackExternalPurchasesKillSwitch;
+            bool TrialComingSoon;
+            bool StorePurchaseFailRefreshEnabled;
+            bool ClientStoreEntityTimerExpiredRefreshEnabled;
+            bool GuestUserSharesUnlocksEnabled;
+            bool StreamingDataCacheEnabled;
+            bool StoreRefreshEnabled;
+            bool TelemetryPS4KillSwitch;
+            bool DisableMiniGameBrowserAutoUpdate;
+            bool PrivilegeCheckEnabled;
         } PVZOnlineSettings;
 
-        typedef struct PVZServerSettings
+        typedef struct PVZServerSettings : SettingsBase
         {
-            std::uint8_t _base[0x20];
-
             uint32_t GameSize;
             float ClientInActivityTimeOut;
             float InActivityTimeOut;
