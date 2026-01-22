@@ -5,7 +5,7 @@
 2. Install the following mods for best experience
 
 ### Garden warfare 1
-[UnlockAll](../Mods/gw1/UnlockAll.fbmod)
+[UnlockAll](../Mods/gw1/UnlockAll.fbmod) (Use `-SyncedBFSettings.AllUnlocksUnlocked true` if you can't get frosty working)
 
 ## If you own bfn on EA App and you want to switch back to official servers, instead of the revert button on the launcher use the repair button on the EA App itself and remove `dinput8.dll` from game directory. (we're looking into this)
 

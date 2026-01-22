@@ -299,8 +299,16 @@ __pycache__/
 *.kate-swp
 
 # Build stuff
-minhook/
-build/
-build-minhook/
-build-gg/
-build-launcher/
+*.dll
+*.exp
+*.cmakecache
+CMakeCache.txt
+Makefile
+CMakeFiles/
+my_msvc/
+
+DLL/minhook/
+DLL/build/
+DLL/build-minhook/
+DLL/build-gg/
+DLL/build-launcher/

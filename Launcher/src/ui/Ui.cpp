@@ -7,30 +7,57 @@
 #include <filesystem>
 #include <string>
 #include <chrono>
+#include <vector>
 
 extern Config g_config;
 namespace fs = std::filesystem;
 
-struct StatusMessage {
-	std::string text;
-	bool isError;
-	std::chrono::steady_clock::time_point showTime;
-	float duration;
+constexpr int GAME_GW1 = 0;
+constexpr int GAME_GW2 = 1;
+constexpr int GAME_BFN = 2;
 
-	StatusMessage(const std::string& t = "", bool error = false, float dur = 3.0f)
-		: text(t), isError(error), showTime(std::chrono::steady_clock::now()), duration(dur) {
+static bool DrawGamePathInput(HWND hwnd, const char* label, const char* exeName, std::string& pathRef, int gameType, float dpiScale, float centerOffset, float fieldWidth) {
+	bool pathChanged = false;
+
+	ImGui::SetCursorPosX(centerOffset);
+	ImGui::TextUnformatted(label);
+	ImGui::SetCursorPosX(centerOffset);
+	ImGui::SetNextItemWidth(fieldWidth - 180 * dpiScale);
+
+	char buf[512];
+	strncpy_s(buf, pathRef.c_str(), sizeof(buf));
+
+	std::string inputId = std::string("##Path_") + label;
+	if (ImGui::InputText(inputId.c_str(), buf, sizeof(buf))) {
+		pathRef = buf;
+		pathChanged = true;
 	}
 
-	bool isExpired() const {
-		auto elapsed = std::chrono::steady_clock::now() - showTime;
-		return std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > duration * 1000;
+	ImGui::SameLine();
+	if (ImGui::Button("Auto Detect", ImVec2(100 * dpiScale, 0))) {
+		std::string detected = Utils::Registry::GetGamePathFromRegistry(gameType);
+		if (!detected.empty()) {
+			fs::path exePath = fs::path(detected) / exeName;
+			pathRef = exePath.string();
+			pathChanged = true;
+			Utils::UI::Status::Show(std::string("Auto detected path: ") + pathRef);
+		}
+		else {
+			Utils::UI::Status::Show("Could not auto detect installation", true);
+		}
 	}
-};
 
-static StatusMessage currentStatus;
+	ImGui::SameLine();
+	if (ImGui::Button("Browse", ImVec2(80 * dpiScale, 0))) {
+		std::string chosen = Utils::Dialog::BrowseForExe(hwnd, gameType);
+		if (!chosen.empty()) {
+			pathRef = chosen;
+			pathChanged = true;
+			Utils::UI::Status::Show(std::string("Path set: ") + chosen);
+		}
+	}
 
-static void showStatus(const std::string& text, bool isError = false, float duration = 3.0f) {
-	currentStatus = StatusMessage(text, isError, duration);
+	return pathChanged;
 }
 
 static void setupStyle(float dpiScale) {
@@ -84,66 +111,51 @@ static void drawTitleBar(HWND hwnd, float dpiScale) {
 }
 
 static void drawTabBar(int& currentTab, float dpiScale) {
-	ImVec4 colorBaseGreen = ImVec4(0.25f, 0.47f, 0.32f, 1.0f);
-
-	ImGui::BeginChild("TabBar", ImVec2(0, 45.0f * dpiScale), false,
-		ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-
+	ImGui::BeginChild("TabBar", ImVec2(0, 45.0f * dpiScale), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 	ImGui::SetCursorPos(ImVec2(15.0f * dpiScale, 6.0f * dpiScale));
-
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(20.0f * dpiScale, 8.0f * dpiScale));
 
 	float tabWidth = 130.0f * dpiScale;
+	ImVec4 activeColor = g_config.baseColor;
+	ImVec4 inactiveColor = ImVec4(0.18f, 0.18f, 0.18f, 1.0f);
 
-	ImGui::PushStyleColor(ImGuiCol_Button, currentTab == 0 ? g_config.baseColor : ImVec4(0.18f, 0.18f, 0.18f, 1.0f));
-	if (ImGui::Button("Launcher", ImVec2(tabWidth, 0))) currentTab = 0;
-	ImGui::PopStyleColor();
-
-	ImGui::SameLine();
-
-	ImGui::PushStyleColor(ImGuiCol_Button, currentTab == 1 ? g_config.baseColor : ImVec4(0.18f, 0.18f, 0.18f, 1.0f));
-	if (ImGui::Button("Patcher", ImVec2(tabWidth, 0))) currentTab = 1;
-	ImGui::PopStyleColor();
-
-	ImGui::SameLine();
-	ImGui::PushStyleColor(ImGuiCol_Button, currentTab == 2 ? g_config.baseColor : ImVec4(0.18f, 0.18f, 0.18f, 1.0f));
-	if (ImGui::Button("Misc", ImVec2(tabWidth, 0))) currentTab = 2;
-	ImGui::PopStyleColor();
+	const char* tabs[] = { "Launcher", "Patcher", "Misc" };
+	for (int i = 0; i < 3; ++i) {
+		if (i > 0) ImGui::SameLine();
+		ImGui::PushStyleColor(ImGuiCol_Button, currentTab == i ? activeColor : inactiveColor);
+		if (ImGui::Button(tabs[i], ImVec2(tabWidth, 0))) currentTab = i;
+		ImGui::PopStyleColor();
+	}
 
 	ImGui::PopStyleVar();
 	ImGui::EndChild();
 }
 
 static void drawStatusMessage(float dpiScale) {
-	if (currentStatus.text.empty() || currentStatus.isExpired()) {
-		return;
-	}
+	if (Utils::UI::Status::GetCurrent().text.empty() || Utils::UI::Status::GetCurrent().isExpired()) return;
 
 	float safeWidth = ImGui::GetContentRegionAvail().x;
 	float centerOffset = (safeWidth - 400 * dpiScale) / 2.0f;
-
 	ImGui::Dummy(ImVec2(0, 5 * dpiScale));
 
-	auto elapsed = std::chrono::steady_clock::now() - currentStatus.showTime;
+	auto elapsed = std::chrono::steady_clock::now() - Utils::UI::Status::GetCurrent().showTime;
 	float elapsedSec = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() / 1000.0f;
-	float alpha = 1.0f;
 
-	if (elapsedSec > currentStatus.duration - 0.5f) {
-		alpha = (currentStatus.duration - elapsedSec) * 2.0f;
+	float alpha = 1.0f;
+	if (elapsedSec > Utils::UI::Status::GetCurrent().duration - 0.5f) {
+		alpha = (Utils::UI::Status::GetCurrent().duration - elapsedSec) * 2.0f;
 	}
 
-	ImVec4 textColor = currentStatus.isError ?
-		ImVec4(1.0f, 0.4f, 0.4f, alpha) :
-		ImVec4(0.4f, 1.0f, 0.4f, alpha);
+	ImVec4 textColor = Utils::UI::Status::GetCurrent().isError
+		? ImVec4(1.0f, 0.4f, 0.4f, alpha)
+		: ImVec4(0.4f, 1.0f, 0.4f, alpha);
 
-	ImGui::SetCursorPosX(centerOffset);
 	ImGui::PushStyleColor(ImGuiCol_Text, textColor);
-
-	float textWidth = ImGui::CalcTextSize(currentStatus.text.c_str()).x;
+	float textWidth = ImGui::CalcTextSize(Utils::UI::Status::GetCurrent().text.c_str()).x;
 	float padding = (400 * dpiScale - textWidth) / 2.0f;
 
 	ImGui::SetCursorPosX(centerOffset + padding);
-	ImGui::Text("%s", currentStatus.text.c_str());
+	ImGui::Text("%s", Utils::UI::Status::GetCurrent().text.c_str());
 	ImGui::PopStyleColor();
 }
 
@@ -152,15 +164,14 @@ static void drawLauncherTab(HWND hwnd, float dpiScale) {
 	float fieldWidth = safeWidth * 0.85f;
 	float centerOffset = (safeWidth - fieldWidth) / 2.0f;
 
-	int  gameSelectedInt = g_config.get_game_selected_int();
-	bool isGW1 = (gameSelectedInt == 0);
+	int gameSelectedInt = g_config.get_game_selected_int();
 
 	ImGui::SetCursorPosX(centerOffset);
-	if (ImGui::RadioButton("GW1", &gameSelectedInt, 0)) g_config.set_game_selected_from_int(0);
+	if (ImGui::RadioButton("GW1", &gameSelectedInt, GAME_GW1)) g_config.set_game_selected_from_int(GAME_GW1);
 	ImGui::SameLine(0.0f, 40 * dpiScale);
-	if (ImGui::RadioButton("GW2", &gameSelectedInt, 1)) g_config.set_game_selected_from_int(1);
+	if (ImGui::RadioButton("GW2", &gameSelectedInt, GAME_GW2)) g_config.set_game_selected_from_int(GAME_GW2);
 	ImGui::SameLine(0.0f, 40 * dpiScale);
-	if (ImGui::RadioButton("BFN", &gameSelectedInt, 2)) g_config.set_game_selected_from_int(2);
+	if (ImGui::RadioButton("BFN", &gameSelectedInt, GAME_BFN)) g_config.set_game_selected_from_int(GAME_BFN);
 
 	ImGui::Separator();
 	Utils::UI::CenteredInput("Username:", g_config.username, centerOffset, fieldWidth);
@@ -168,43 +179,10 @@ static void drawLauncherTab(HWND hwnd, float dpiScale) {
 	Utils::UI::CenteredInput("Password:", g_config.password, centerOffset, fieldWidth, ImGuiInputTextFlags_Password);
 
 	auto& currentGame = g_config.get_current_game();
-	ImGui::SetCursorPosX(centerOffset);
-	ImGui::TextUnformatted("Game Path:");
-	ImGui::SetCursorPosX(centerOffset);
-	ImGui::SetNextItemWidth(fieldWidth - 180 * dpiScale);
 
-	char buf[512];
-	strncpy_s(buf, currentGame.game_path.c_str(), sizeof(buf));
-	if (ImGui::InputText("##GamePath", buf, sizeof(buf))) currentGame.game_path = buf;
-
-	ImGui::SameLine();
-	if (ImGui::Button("AutoDetect", ImVec2(100 * dpiScale, 0))) {
-		std::string detected = Utils::Registry::GetGamePathFromRegistry(gameSelectedInt);
-		if (!detected.empty()) {
-			fs::path exePath = fs::path(detected);
-			if (gameSelectedInt == 0) {
-				exePath /= "PVZ.Main_Win64_Retail.exe";
-			}
-			else if (gameSelectedInt == 1) {
-				exePath /= "GW2.Main_Win64_Retail.exe";
-			}
-			else {
-				exePath /= "PVZBattleforNeighborville.exe";
-			}
-			currentGame.game_path = exePath.string();
-			showStatus("Auto detected game path: " + currentGame.game_path);
-		}
-		else {
-			showStatus("Could not auto detect game installation", true);
-		}
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Browse", ImVec2(80 * dpiScale, 0))) {
-		std::string chosen = Utils::Dialog::BrowseForExe(hwnd, gameSelectedInt);
-		if (!chosen.empty()) {
-			currentGame.game_path = chosen;
-			showStatus("Game path set: " + chosen);
-		}
+	const char* exeNames[] = { "PVZ.Main_Win64_Retail.exe", "GW2.Main_Win64_Retail.exe", "PVZBattleforNeighborville.exe" };
+	if (DrawGamePathInput(hwnd, "Game Path:", exeNames[gameSelectedInt], currentGame.game_path, gameSelectedInt, dpiScale, centerOffset, fieldWidth)) {
+		save_config(g_config, "config.json");
 	}
 
 	ImGui::Dummy(ImVec2(0, 10 * dpiScale));
@@ -229,20 +207,16 @@ static void drawLauncherTab(HWND hwnd, float dpiScale) {
 	if (currentGame.moddata_enabled) {
 		std::vector<std::string> modFolders = { "Default" };
 		if (!currentGame.game_path.empty()) {
-			fs::path gamePath = fs::path(currentGame.game_path);
-			if (fs::exists(gamePath)) {
-				fs::path modDataDir = gamePath.parent_path() / "ModData";
-				if (fs::exists(modDataDir) && fs::is_directory(modDataDir)) {
-					for (const auto& entry : fs::directory_iterator(modDataDir)) {
-						if (entry.is_directory()) {
-							std::string folderName = entry.path().filename().string();
-							if (folderName != "Default") modFolders.push_back(folderName);
-						}
+			fs::path modDataDir = fs::path(currentGame.game_path).parent_path() / "ModData";
+			if (fs::exists(modDataDir) && fs::is_directory(modDataDir)) {
+				for (const auto& entry : fs::directory_iterator(modDataDir)) {
+					if (entry.is_directory() && entry.path().filename() != "Default") {
+						modFolders.push_back(entry.path().filename().string());
 					}
 				}
-				else {
-					showStatus("ModData folder not found at: " + modDataDir.string(), true);
-				}
+			}
+			else {
+				Utils::UI::Status::Show("ModData folder not found at: " + modDataDir.string(), true);
 			}
 		}
 
@@ -252,18 +226,16 @@ static void drawLauncherTab(HWND hwnd, float dpiScale) {
 		ImGui::SetNextItemWidth(fieldWidth);
 
 		std::vector<const char*> modCStrings;
-		modCStrings.reserve(modFolders.size());
-		for (const auto& mod : modFolders) modCStrings.push_back(mod.c_str());
-
 		int currentSelection = 0;
 		for (size_t i = 0; i < modFolders.size(); ++i) {
-			if (modFolders[i] == currentGame.moddata_selected) { currentSelection = (int)i; break; }
+			modCStrings.push_back(modFolders[i].c_str());
+			if (modFolders[i] == currentGame.moddata_selected) currentSelection = (int)i;
 		}
 
 		if (ImGui::Combo("##ModDataPreset", &currentSelection, modCStrings.data(), (int)modCStrings.size())) {
 			currentGame.moddata_selected = modFolders[currentSelection];
 			save_config(g_config, "config.json");
-			showStatus("ModData preset set to: " + currentGame.moddata_selected);
+			Utils::UI::Status::Show("ModData preset set to: " + currentGame.moddata_selected);
 		}
 	}
 
@@ -280,23 +252,20 @@ static void drawLauncherTab(HWND hwnd, float dpiScale) {
 		save_config(g_config, "config.json");
 
 		if (currentGame.game_path.empty()) {
-			showStatus("Please set a game path first!", true);
+			Utils::UI::Status::Show("Please set a game path first!", true);
 		}
 		else {
-			std::string modDataPath;
-			if (currentGame.moddata_enabled && !currentGame.moddata_selected.empty()) {
-				modDataPath = "ModData/" + currentGame.moddata_selected;
-			}
+			std::string modDataPath = (currentGame.moddata_enabled && !currentGame.moddata_selected.empty())
+				? "ModData/" + currentGame.moddata_selected : "";
 
-			int gameType = g_config.get_game_selected_int();
+			Utils::Process::PatchEAArgs(args, gameSelectedInt);
+			auto lr = Utils::Process::LaunchAndInject(currentGame.game_path, args, "level_loader.dll", modDataPath, gameSelectedInt, g_config);
 
-			Utils::Process::PatchEAArgs(args, gameType);
-			auto lr = Utils::Process::LaunchAndInject(currentGame.game_path, args, "level_loader.dll", modDataPath, gameType, g_config);
 			if (!lr.ok) {
-				showStatus("Failed to launch: " + lr.error, true);
+				Utils::UI::Status::Show("Failed to launch: " + lr.error, true);
 			}
 			else {
-				showStatus("Launching game...\nArgs: " + args);
+				Utils::UI::Status::Show("Launching game...\nArgs: " + args);
 				CloseHandle(lr.pi.hProcess);
 				CloseHandle(lr.pi.hThread);
 			}
@@ -313,88 +282,68 @@ static void drawPatcherTab(HWND hwnd, float dpiScale) {
 
 	int gameSelectedInt = g_config.get_game_selected_int();
 
-	if (gameSelectedInt == 0) {
+	fs::path launcherDir = fs::path([] {
+		char path[MAX_PATH];
+		GetModuleFileNameA(NULL, path, MAX_PATH);
+		return std::string(path);
+		}()).parent_path();
+
+	std::string dllFile = (launcherDir / "dinput8.dll").string();
+
+	if (gameSelectedInt == GAME_GW1) {
 		auto& gw1Config = g_config.gw1;
 
-		ImGui::SetCursorPosX(centerOffset);
-		ImGui::TextUnformatted("GW1 Executable:");
-		ImGui::SetCursorPosX(centerOffset);
-		ImGui::SetNextItemWidth(fieldWidth - 180 * dpiScale);
-
-		char buf[512];
-		strncpy_s(buf, gw1Config.game_path.c_str(), sizeof(buf));
-		if (ImGui::InputText("##GW1ExePath", buf, sizeof(buf))) {
-			gw1Config.game_path = buf;
+		if (DrawGamePathInput(hwnd, "GW1 Executable:", "PVZ.Main_Win64_Retail.exe", gw1Config.game_path, GAME_GW1, dpiScale, centerOffset, fieldWidth)) {
 			save_config(g_config, "config.json");
-		}
-
-		ImGui::SameLine();
-		if (ImGui::Button("Auto Detect", ImVec2(100 * dpiScale, 0))) {
-			std::string detected = Utils::Registry::GetGamePathFromRegistry(0);
-			if (!detected.empty()) {
-				fs::path exePath = fs::path(detected);
-				exePath /= "PVZ.Main_Win64_Retail.exe";
-				gw1Config.game_path = exePath.string();
-				save_config(g_config, "config.json");
-				showStatus("Auto detected GW1 path: " + exePath.string());
-			}
-			else {
-				showStatus("Could not auto detect GW1 installation", true);
-			}
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Browse", ImVec2(80 * dpiScale, 0))) {
-			std::string chosen = Utils::Dialog::BrowseForExe(hwnd, 0);
-			if (!chosen.empty()) {
-				gw1Config.game_path = chosen;
-				save_config(g_config, "config.json");
-				showStatus("GW1 path set: " + chosen);
-			}
 		}
 
 		ImGui::Dummy(ImVec2(0, 20 * dpiScale));
 
 		if (!gw1Config.game_path.empty() && fs::exists(gw1Config.game_path)) {
+			bool isPatched = Patcher::IsGW1Patched(gw1Config.game_path);
 			fs::path gameDir = fs::path(gw1Config.game_path).parent_path();
 			fs::path dllPath = gameDir / "dinput8.dll";
 			fs::path dllDisabled = gameDir / "dinput8.dll.disabled";
 
-			if (fs::exists(dllPath)) {
+			if (isPatched) {
+				ImGui::SetCursorPosX(centerOffset);
+				ImGui::TextColored(ImVec4(0, 1, 0, 1), "Garden Gate is installed");
+
 				if (Utils::UI::CenteredButton("DISABLE GARDEN GATE", 200 * dpiScale, dpiScale)) {
 					std::string err;
-					if (Utils::FileUtil::move_replace(dllPath.string(), dllDisabled.string(), err)) {
-						showStatus("Garden Gate disabled for GW1");
+					if (Patcher::RestoreGW1(gw1Config.game_path, err)) {
+						Utils::UI::Status::Show("Garden Gate disabled for GW1");
 					}
 					else {
-						showStatus("Error: " + err, true);
+						Utils::UI::Status::Show("Error: " + err, true);
 					}
 				}
 			}
 			else if (fs::exists(dllDisabled)) {
+				ImGui::SetCursorPosX(centerOffset);
+				ImGui::TextColored(ImVec4(1, 1, 0, 1), "Garden Gate is disabled");
+
 				if (Utils::UI::CenteredButton("ENABLE GARDEN GATE", 200 * dpiScale, dpiScale)) {
 					std::string err;
-					if (Utils::FileUtil::move_replace(dllDisabled.string(), dllPath.string(), err)) {
-						showStatus("Garden Gate enabled for GW1");
+					if (Patcher::AutoPatchGW1(gw1Config.game_path, dllFile, err)) {
+						Utils::UI::Status::Show("Garden Gate enabled for GW1");
 					}
 					else {
-						showStatus("Error: " + err, true);
+						Utils::UI::Status::Show("Error: " + err, true);
 					}
 				}
 			}
 			else {
+				ImGui::SetCursorPosX(centerOffset);
+				ImGui::Text("Garden Gate is not installed");
+
 				if (Utils::UI::CenteredButton("INSTALL GARDEN GATE", 200 * dpiScale, dpiScale)) {
-					fs::path launcherDir = fs::path([] {
-						char path[MAX_PATH];
-						GetModuleFileNameA(NULL, path, MAX_PATH);
-						return std::string(path);
-						}()).parent_path();
-					fs::path dllSource = launcherDir / "dinput8.dll";
 					std::string err;
-					if (Utils::FileUtil::copy(dllSource.string(), dllPath.string(), err)) {
-						showStatus("Garden Gate installed for GW1");
+					if (Patcher::AutoPatchGW1(gw1Config.game_path, dllFile, err)) {
+						Utils::UI::Status::Show("Garden Gate installed for gw1");
 					}
 					else {
-						showStatus("Error: " + err, true);
+						Utils::UI::Status::Show("Error: " + err, true);
 					}
 				}
 			}
@@ -404,159 +353,25 @@ static void drawPatcherTab(HWND hwnd, float dpiScale) {
 			ImGui::TextColored(ImVec4(1, 0.5f, 0, 1), "Set GW1 path first!");
 		}
 	}
-	else if (gameSelectedInt == 1) {
-		auto& gw2Config = g_config.gw2;
-		bool isPatched = !gw2Config.game_path.empty() && Patcher::IsGW2Patched(gw2Config.game_path);
+	else {
+		bool isGW2 = (gameSelectedInt == GAME_GW2);
+		auto& gameConfig = isGW2 ? g_config.gw2 : g_config.bfn;
+		const char* label = isGW2 ? "GW2 Executable:" : "BFN Executable:";
+		const char* exeName = isGW2 ? "GW2.Main_Win64_Retail.exe" : "PVZBattleforNeighborville.exe";
+		const char* patchSubDir = isGW2 ? "gw2" : "bfn";
+		const char* patchFileName = isGW2 ? "GW2.Main_Win64_Retail.exe.xdelta" : "PVZBattleforNeighborville.exe.xdelta";
 
-		ImGui::SetCursorPosX(centerOffset);
-		ImGui::TextUnformatted("GW2 Executable:");
-		ImGui::SetCursorPosX(centerOffset);
-		ImGui::SetNextItemWidth(fieldWidth - 180 * dpiScale);
+		bool isPatched = !gameConfig.game_path.empty() && (isGW2 ? Patcher::IsGW2Patched(gameConfig.game_path) : Patcher::IsBFNPatched(gameConfig.game_path));
 
-		char buf[512];
-		strncpy_s(buf, gw2Config.game_path.c_str(), sizeof(buf));
-		if (ImGui::InputText("##GW2ExePath", buf, sizeof(buf))) {
-			gw2Config.game_path = buf;
+		if (DrawGamePathInput(hwnd, label, exeName, gameConfig.game_path, gameSelectedInt, dpiScale, centerOffset, fieldWidth)) {
 			save_config(g_config, "config.json");
-			if (!gw2Config.game_path.empty()) isPatched = Patcher::IsGW2Patched(gw2Config.game_path);
-		}
-
-		ImGui::SameLine();
-		if (ImGui::Button("Auto Detect", ImVec2(100 * dpiScale, 0))) {
-			std::string detected = Utils::Registry::GetGamePathFromRegistry(1);
-			if (!detected.empty()) {
-				fs::path exePath = fs::path(detected);
-				exePath /= "GW2.Main_Win64_Retail.exe";
-				gw2Config.game_path = exePath.string();
-				save_config(g_config, "config.json");
-				showStatus("Auto detected GW2 path: " + exePath.string());
-				isPatched = Patcher::IsGW2Patched(gw2Config.game_path);
-			}
-			else {
-				showStatus("Could not auto detect GW2 installation", true);
-			}
-		}
-
-		ImGui::SameLine();
-		if (ImGui::Button("Browse", ImVec2(80 * dpiScale, 0))) {
-			std::string chosen = Utils::Dialog::BrowseForExe(hwnd, 1);
-			if (!chosen.empty()) {
-				gw2Config.game_path = chosen;
-				save_config(g_config, "config.json");
-				showStatus("GW2 path set: " + chosen);
-				isPatched = Patcher::IsGW2Patched(gw2Config.game_path);
-			}
+			isPatched = isGW2 ? Patcher::IsGW2Patched(gameConfig.game_path) : Patcher::IsBFNPatched(gameConfig.game_path);
 		}
 
 		ImGui::Dummy(ImVec2(0, 20 * dpiScale));
-		fs::path launcherDir = fs::path([] {
-			char path[MAX_PATH];
-			GetModuleFileNameA(NULL, path, MAX_PATH);
-			return std::string(path);
-			}()).parent_path();
 
-		std::string patchFile = (launcherDir / "patches" / "gw2" / "GW2.Main_Win64_Retail.exe.xdelta").string();
-		std::string dllFile = (launcherDir / "dinput8.dll").string();
-		bool hasPatch = fs::exists(patchFile), hasDLL = fs::exists(dllFile);
-
-		if (!hasPatch || !hasDLL) {
-			ImGui::SetCursorPosX(centerOffset);
-			ImGui::TextColored(ImVec4(1, 0.5f, 0, 1), "Missing required files:");
-			if (!hasPatch) {
-				ImGui::SetCursorPosX(centerOffset);
-				ImGui::Text("- GW2 patch files in patches/gw2/");
-			}
-			if (!hasDLL) {
-				ImGui::SetCursorPosX(centerOffset);
-				ImGui::Text("- dinput8.dll");
-			}
-		}
-
-		if (isPatched) {
-			ImGui::SetCursorPosX(centerOffset);
-			ImGui::TextColored(ImVec4(0, 1, 0, 1), "GW2 is already patched");
-			if (Utils::UI::CenteredButton("RESTORE ORIGINAL GW2", 200 * dpiScale, dpiScale)) {
-				std::string err;
-				if (Patcher::RestoreGW2(gw2Config.game_path, err)) {
-					isPatched = false;
-					showStatus("GW2 restored to original");
-				}
-				else {
-					showStatus("Error: " + err, true);
-				}
-			}
-		}
-		else {
-			ImGui::SetCursorPosX(centerOffset);
-			ImGui::Text("One click patch for Garden Warfare 2");
-			ImGui::BeginDisabled(!hasPatch || !hasDLL || gw2Config.game_path.empty());
-			if (Utils::UI::CenteredButton("AUTO PATCH GW2", 200 * dpiScale, dpiScale)) {
-				std::string err;
-				if (Patcher::AutoPatchGW2(gw2Config.game_path, patchFile, dllFile, err)) {
-					isPatched = true;
-					showStatus("GW2 patched successfully!");
-				}
-				else {
-					showStatus("Error: " + err, true);
-				}
-			}
-			ImGui::EndDisabled();
-		}
-	}
-	else if (gameSelectedInt == 2) {
-		auto& bfnConfig = g_config.bfn;
-		bool isPatched = !bfnConfig.game_path.empty() && Patcher::IsBFNPatched(bfnConfig.game_path);
-
-		ImGui::SetCursorPosX(centerOffset);
-		ImGui::TextUnformatted("BFN Executable:");
-		ImGui::SetCursorPosX(centerOffset);
-		ImGui::SetNextItemWidth(fieldWidth - 180 * dpiScale);
-
-		char buf[512];
-		strncpy_s(buf, bfnConfig.game_path.c_str(), sizeof(buf));
-		if (ImGui::InputText("##BFNExePath", buf, sizeof(buf))) {
-			bfnConfig.game_path = buf;
-			save_config(g_config, "config.json");
-			if (!bfnConfig.game_path.empty()) isPatched = Patcher::IsBFNPatched(bfnConfig.game_path);
-		}
-
-		ImGui::SameLine();
-		if (ImGui::Button("Auto Detect", ImVec2(100 * dpiScale, 0))) {
-			std::string detected = Utils::Registry::GetGamePathFromRegistry(2);
-			if (!detected.empty()) {
-				fs::path exePath = fs::path(detected);
-				exePath /= "PVZBattleforNeighborville.exe";
-				bfnConfig.game_path = exePath.string();
-				save_config(g_config, "config.json");
-				showStatus("Auto detected BFN path: " + exePath.string());
-				isPatched = Patcher::IsBFNPatched(bfnConfig.game_path);
-			}
-			else {
-				showStatus("Could not auto detect BFN installation", true);
-			}
-		}
-
-		ImGui::SameLine();
-		if (ImGui::Button("Browse", ImVec2(80 * dpiScale, 0))) {
-			std::string chosen = Utils::Dialog::BrowseForExe(hwnd, 2);
-			if (!chosen.empty()) {
-				bfnConfig.game_path = chosen;
-				save_config(g_config, "config.json");
-				showStatus("BFN path set: " + chosen);
-				isPatched = Patcher::IsBFNPatched(bfnConfig.game_path);
-			}
-		}
-
-		ImGui::Dummy(ImVec2(0, 20 * dpiScale));
-		fs::path launcherDir = fs::path([] {
-			char path[MAX_PATH];
-			GetModuleFileNameA(NULL, path, MAX_PATH);
-			return std::string(path);
-			}()).parent_path();
-
-		fs::path patchesDir = launcherDir / "patches" / "bfn";
-		std::string dllFile = (launcherDir / "dinput8.dll").string();
-		bool hasPatchFiles = fs::exists(patchesDir / "PVZBattleforNeighborville.exe.xdelta");
+		std::string patchFile = (launcherDir / "patches" / patchSubDir / patchFileName).string();
+		bool hasPatchFiles = fs::exists(patchFile);
 		bool hasDLL = fs::exists(dllFile);
 
 		if (!hasPatchFiles || !hasDLL) {
@@ -564,7 +379,7 @@ static void drawPatcherTab(HWND hwnd, float dpiScale) {
 			ImGui::TextColored(ImVec4(1, 0.5f, 0, 1), "Missing required files:");
 			if (!hasPatchFiles) {
 				ImGui::SetCursorPosX(centerOffset);
-				ImGui::Text("- BFN patch files in patches/bfn/");
+				ImGui::Text("- Patch files in patches/%s/", patchSubDir);
 			}
 			if (!hasDLL) {
 				ImGui::SetCursorPosX(centerOffset);
@@ -574,30 +389,37 @@ static void drawPatcherTab(HWND hwnd, float dpiScale) {
 
 		if (isPatched) {
 			ImGui::SetCursorPosX(centerOffset);
-			ImGui::TextColored(ImVec4(0, 1, 0, 1), "BFN is already patched");
-			if (Utils::UI::CenteredButton("RESTORE ORIGINAL BFN", 200 * dpiScale, dpiScale)) {
+			ImGui::TextColored(ImVec4(0, 1, 0, 1), isGW2 ? "GW2 is already patched" : "BFN is already patched");
+
+			if (Utils::UI::CenteredButton(isGW2 ? "RESTORE ORIGINAL GW2" : "RESTORE ORIGINAL BFN", 200 * dpiScale, dpiScale)) {
 				std::string err;
-				if (Patcher::RestoreBFN(bfnConfig.game_path, err)) {
+				bool restored = isGW2 ? Patcher::RestoreGW2(gameConfig.game_path, err) : Patcher::RestoreBFN(gameConfig.game_path, err);
+				if (restored) {
 					isPatched = false;
-					showStatus("BFN restored to original");
+					Utils::UI::Status::Show(isGW2 ? "GW2 restored to original" : "BFN restored to original");
 				}
 				else {
-					showStatus("Error: " + err, true);
+					Utils::UI::Status::Show("Error: " + err, true);
 				}
 			}
 		}
 		else {
 			ImGui::SetCursorPosX(centerOffset);
-			ImGui::Text("One click patch for Battle for Neighborville");
-			ImGui::BeginDisabled(!hasPatchFiles || !hasDLL || bfnConfig.game_path.empty());
-			if (Utils::UI::CenteredButton("AUTO PATCH BFN", 200 * dpiScale, dpiScale)) {
+			ImGui::Text("One click patch for %s", isGW2 ? "Garden Warfare 2" : "Battle for Neighborville");
+			ImGui::BeginDisabled(!hasPatchFiles || !hasDLL || gameConfig.game_path.empty());
+
+			if (Utils::UI::CenteredButton(isGW2 ? "AUTO PATCH GW2" : "AUTO PATCH BFN", 200 * dpiScale, dpiScale)) {
 				std::string err;
-				if (Patcher::AutoPatchBFN(bfnConfig.game_path, patchesDir.string(), dllFile, err)) {
+				bool patched = isGW2
+					? Patcher::AutoPatchGW2(gameConfig.game_path, patchFile, dllFile, err)
+					: Patcher::AutoPatchBFN(gameConfig.game_path, (launcherDir / "patches" / "bfn").string(), dllFile, err);
+
+				if (patched) {
 					isPatched = true;
-					showStatus("BFN patched successfully!");
+					Utils::UI::Status::Show(isGW2 ? "GW2 patched successfully!" : "BFN patched successfully!");
 				}
 				else {
-					showStatus("Error: " + err, true);
+					Utils::UI::Status::Show("Error: " + err, true);
 				}
 			}
 			ImGui::EndDisabled();
@@ -607,8 +429,7 @@ static void drawPatcherTab(HWND hwnd, float dpiScale) {
 	drawStatusMessage(dpiScale);
 }
 
-static void drawMiscTab(HWND hwnd, float dpiScale)
-{
+static void drawMiscTab(HWND hwnd, float dpiScale) {
 	float safeWidth = ImGui::GetContentRegionAvail().x;
 
 	ImGui::Dummy(ImVec2(0, 30 * dpiScale));
@@ -618,19 +439,14 @@ static void drawMiscTab(HWND hwnd, float dpiScale)
 	ImGui::PopStyleColor();
 	ImGui::Dummy(ImVec2(0, 15 * dpiScale));
 
-	const std::vector<std::string> credits = { "RaT", "nocss", "twig", "blueballoon", "eshaydev" };
-	float nameSpacing = 30.0f * dpiScale;
+	const std::vector<std::string> credits = { "RaT", "nocss", "twig", "blueballoon", "eshaydev", "gargos69junior", "werzdragon", "megadwarf47" };
+	float nameSpacing = 25.0f * dpiScale;
 	float totalCreditsWidth = 0.0f;
 
-	for (const auto& name : credits) {
-		totalCreditsWidth += ImGui::CalcTextSize(name.c_str()).x;
-	}
-	if (credits.size() > 1) {
-		totalCreditsWidth += (nameSpacing * (credits.size() - 1));
-	}
+	for (const auto& name : credits) totalCreditsWidth += ImGui::CalcTextSize(name.c_str()).x;
+	if (credits.size() > 1) totalCreditsWidth += (nameSpacing * (credits.size() - 1));
 
 	ImGui::SetCursorPosX((safeWidth - totalCreditsWidth) * 0.5f);
-
 	for (size_t i = 0; i < credits.size(); i++) {
 		if (i > 0) ImGui::SameLine(0, nameSpacing);
 		ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.8f, 1.0f), credits[i].c_str());
@@ -638,7 +454,6 @@ static void drawMiscTab(HWND hwnd, float dpiScale)
 
 	ImGui::SetWindowFontScale(1.0f);
 	ImGui::Dummy(ImVec2(0, 40 * dpiScale));
-
 
 	ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
 	ImGui::Separator();
@@ -699,22 +514,14 @@ static void drawMiscTab(HWND hwnd, float dpiScale)
 
 	ImGui::Dummy(ImVec2(0, 25 * dpiScale));
 
-	float pickerSize = 50.0f * dpiScale;
-	float spacing = 40.0f * dpiScale;
-	float textGap = 4.0f * dpiScale;
-	int itemCount = 3;
-
-	float totalBlockWidth = (pickerSize * itemCount) + (spacing * (itemCount - 1));
+	float pickerSize = 50.0f * dpiScale, spacing = 40.0f * dpiScale, textGap = 4.0f * dpiScale;
+	float totalBlockWidth = (pickerSize * 3) + (spacing * 2);
 	float startX = (safeWidth - totalBlockWidth) * 0.5f;
 	float startY = ImGui::GetCursorPosY();
 
 	auto DrawCenteredItem = [&](int index, const char* label, ImVec4& color, const char* id) {
 		ImGui::PushID(id);
-
-		float itemX = startX + (index * (pickerSize + spacing));
-		float boxY = startY;
-
-		ImGui::SetCursorPos(ImVec2(itemX, boxY));
+		ImGui::SetCursorPos(ImVec2(startX + (index * (pickerSize + spacing)), startY));
 		ImGui::SetNextItemWidth(pickerSize);
 		if (ImGui::ColorEdit3("", (float*)&color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
 			currentPreset = -1;
@@ -724,15 +531,10 @@ static void drawMiscTab(HWND hwnd, float dpiScale)
 
 		ImVec2 boxPos = ImGui::GetItemRectMin();
 		ImVec2 boxSize = ImGui::GetItemRectSize();
-
 		ImVec2 textSize = ImGui::CalcTextSize(label);
-		ImVec2 textPos(
-			boxPos.x + (boxSize.x * 0.5f) - (textSize.x * 0.5f),
-			boxPos.y - textSize.y - 6.0f * dpiScale
-		);
+		ImVec2 textPos(boxPos.x + (boxSize.x * 0.5f) - (textSize.x * 0.5f), boxPos.y - textSize.y - 6.0f * dpiScale);
 
 		ImGui::GetWindowDrawList()->AddText(textPos, IM_COL32(180, 180, 180, 255), label);
-
 		ImGui::PopID();
 		};
 
@@ -740,11 +542,10 @@ static void drawMiscTab(HWND hwnd, float dpiScale)
 	DrawCenteredItem(1, "Hover", g_config.baseHover, "HoverColor");
 	DrawCenteredItem(2, "Active", g_config.baseActive, "ActiveColor");
 
-	float blockHeight = ImGui::GetTextLineHeight() + textGap + ImGui::GetFrameHeight();
-	ImGui::SetCursorPosY(startY + blockHeight);
-
+	ImGui::SetCursorPosY(startY + ImGui::GetTextLineHeight() + textGap + ImGui::GetFrameHeight());
 	ImGui::Dummy(ImVec2(0, 50 * dpiScale));
 	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));
+
 #ifdef GIT_HASH
 #ifdef GIT_DATE
 	Utils::UI::CenteredText("Launcher Version: " + std::string(GIT_HASH) + " (" + GIT_DATE + ")", safeWidth);
@@ -754,24 +555,25 @@ static void drawMiscTab(HWND hwnd, float dpiScale)
 #else
 	Utils::UI::CenteredText("unknown", safeWidth);
 #endif
+
 	ImGui::PopStyleColor();
 	ImGui::Dummy(ImVec2(0, 10 * dpiScale));
+
 	if (Utils::UI::CenteredButton("GITHUB REPOSITORY", 220 * dpiScale, dpiScale)) {
 		ShellExecuteA(hwnd, "open", "https://github.com/nocss42/GardenGate", NULL, NULL, SW_SHOWNORMAL);
 	}
+
 	drawStatusMessage(dpiScale);
 }
 
 void UI::DrawUI(HWND hwnd, float dpiScale) {
 	static int currentTab = 0;
-
 	setupStyle(dpiScale);
 
 	RECT rc;
 	GetClientRect(hwnd, &rc);
-	ImVec2 size((float)(rc.right - rc.left), (float)(rc.bottom - rc.top));
 	ImGui::SetNextWindowPos(ImVec2(0, 0));
-	ImGui::SetNextWindowSize(size);
+	ImGui::SetNextWindowSize(ImVec2((float)(rc.right - rc.left), (float)(rc.bottom - rc.top)));
 
 	ImGui::Begin("Garden Gate", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
 
@@ -780,14 +582,10 @@ void UI::DrawUI(HWND hwnd, float dpiScale) {
 
 	ImGui::BeginChild("ContentArea", ImVec2(0, ImGui::GetContentRegionAvail().y), false);
 
-	if (currentTab == 0) {
-		drawLauncherTab(hwnd, dpiScale);
-	}
-	else if (currentTab == 1) {
-		drawPatcherTab(hwnd, dpiScale);
-	}
-	else if (currentTab == 2) {
-		drawMiscTab(hwnd, dpiScale);
+	switch (currentTab) {
+	case 0: drawLauncherTab(hwnd, dpiScale); break;
+	case 1: drawPatcherTab(hwnd, dpiScale); break;
+	case 2: drawMiscTab(hwnd, dpiScale); break;
 	}
 
 	ImGui::EndChild();

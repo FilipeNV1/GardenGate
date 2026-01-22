@@ -1,4 +1,12 @@
+#include <windows.h>
+#include <shellapi.h>
+#include <shlobj.h>
+#include <shlwapi.h>
+#include <tlhelp32.h>
+#include <process.h>
+
 #include "Utils.hpp"
+#include "Patcher.hpp"
 
 #include <fstream> 
 #include <filesystem>
@@ -7,11 +15,9 @@
 #include <cctype>
 #include <iomanip>
 #include <sstream>
-#include <shlobj.h>
-#include <shellapi.h>
-#include <shlwapi.h>
-#include <process.h>
-#include <tlhelp32.h>
+#include <string>
+#include <vector>
+#include <cstring>
 
 namespace fs = std::filesystem;
 
@@ -136,6 +142,18 @@ namespace Utils {
 			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset);
 			return ImGui::Button(label, ImVec2(width, 38.0f * dpiScale));
 		}
+
+		namespace Status {
+			static StatusMessage currentStatus;
+
+			void Show(const std::string& text, bool isError, float duration) {
+				currentStatus = StatusMessage(text, isError, duration);
+			}
+
+			const StatusMessage& GetCurrent() {
+				return currentStatus;
+			}
+		}
 	}
 
 	namespace Process {
@@ -187,6 +205,11 @@ namespace Utils {
 
 		void PatchEAArgs(const std::string& args, int gameType) {
 			fs::path eaDir = fs::path(getenv("LOCALAPPDATA")) / "Electronic Arts" / "EA Desktop";
+
+			if (!fs::exists(eaDir) || !fs::is_directory(eaDir)) {
+				return;
+			}
+
 			const std::vector<std::string> gw1Keys = {
 				"user.gamecommandline.ofb-east:109551084",
 				"user.gamecommandline.ofb-east:109550787",
@@ -267,6 +290,10 @@ namespace Utils {
 				if (splitPos == std::string::npos) continue;
 				std::string path = filePath.substr(0, splitPos);
 				std::string key = filePath.substr(splitPos + 1);
+
+				if (!fs::exists(path)) {
+					continue;
+				}
 
 				std::ifstream in(path);
 				if (!in) continue;
@@ -641,6 +668,7 @@ namespace Utils {
 
 			return lr;
 		}
+
 	}
 
 	namespace FileUtil {
@@ -673,3 +701,4 @@ namespace Utils {
 		}
 	}
 }
+

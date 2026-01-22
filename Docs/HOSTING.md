@@ -6,7 +6,7 @@
 
 2. Install the following mods;
 
-[UnlockAll](../Mods/gw1/UnlockAll.fbmod)
+[UnlockAll](../Mods/gw1/UnlockAll.fbmod) (Use `-SyncedBFSettings.AllUnlocksUnlocked true` if you can't get frosty working)
 
 3. Open up the launcher go to patcher and press auto detect > patch (keep the ip section empty)
 
@@ -36,8 +36,6 @@ Put the one of your choice to game's directory and name it as `level_loader.dll`
 
 5. Host any map of your choice through the multiplayer portal
 
-## If you own bfn on EA App and you want to switch back to official servers, instead of the revert button on the launcher use the repair button on the EA App itself and remove `dinput8.dll` from game directory. (we're looking into this)
-
 ### Battle for Neighborville
 
 1. Download the archive from [releases](https://github.com/nocss42/GardenGate/releases)
@@ -47,7 +45,7 @@ Put the one of your choice to game's directory and name it as `level_loader.dll`
 3. Host any map of your choice through the multiplayer portal
 
 ### (Make sure to port forward `25200` or use some sort of VPN software)
-### [ZeroTier](https://www.zerotier.com/download) , [RadminVPN](https://vpn.net) or [playit.gg](https://playit.gg) Add your friends to the network and join by the IP it provides.
+### Use [ZeroTier](https://www.zerotier.com/download) , [RadminVPN](https://vpn.net) or [playit.gg](https://playit.gg). Add your friends to the network and join by the IP it provides.
 
 ### Mod Credits
 Private Play (Dark Damona,brekko)

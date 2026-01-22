@@ -9,6 +9,9 @@ Yes it should. Please [see this](./LINUX.md)
 ### Does this work on console?
 No it doesn't.
 
+### Does this "steal" my ip?
+No it doesn't. It's just shared just like minecraft servers.
+
 ### Does progression work on this?
 No it doesn't. There aren't plans on fixing that as of writing this.
 

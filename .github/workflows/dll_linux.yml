@@ -1,6 +1,6 @@
 name: Build DLL (Linux)
 
-# This workflow is WIP. The dll generated from it will result both gw1 & gw2 to crash when loading into a level.
+# This workflow is WIP. The dll generated from it will result in a crash when loading into a level regardless of the game.
 
 on:
   workflow_dispatch:
@@ -33,6 +33,7 @@ jobs:
         run: |
           sudo -u builder sh <<'EOF'
           set -e
+          cd DLL
           git clone https://github.com/TsudaKageyu/minhook
           sh -c "
             cmake -S minhook -B build-minhook \
@@ -54,4 +55,4 @@ jobs:
         with:
           name: DLL
           path: |
-            build-gg/dinput8.dll
+            DLL/build-gg/dinput8.dll

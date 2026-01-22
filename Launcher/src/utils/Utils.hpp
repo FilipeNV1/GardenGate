@@ -21,6 +21,27 @@ namespace Utils {
 		void CenteredInput(const char* label, std::string& value, float centerOffset, float fieldWidth, ImGuiInputTextFlags flags = 0);
 		void CenteredText(const std::string& text, float windowWidth);
 		bool CenteredButton(const char* label, float width, float dpiScale);
+
+		namespace Status {
+			struct StatusMessage {
+				std::string text;
+				bool isError;
+				std::chrono::steady_clock::time_point showTime;
+				float duration;
+
+				StatusMessage(const std::string& t = "", bool error = false, float dur = 3.0f)
+					: text(t), isError(error), showTime(std::chrono::steady_clock::now()), duration(dur) {
+				}
+
+				bool isExpired() const {
+					auto elapsed = std::chrono::steady_clock::now() - showTime;
+					return std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > (duration * 1000.0f);
+				}
+			};
+
+			void Show(const std::string& text, bool isError = false, float duration = 3.0f);
+			const StatusMessage& GetCurrent();
+		}
 	}
 
 	namespace Process {

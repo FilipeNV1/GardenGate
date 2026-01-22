@@ -5,24 +5,39 @@
 
 Experimental private servers for Plants vs. Zombies Garden Warfare 1,2 & Battle for Neighborville
 
-------
+<p align="center">
+  <a href="https://discord.gg/sEs9NcUrF9">
+    <img src="https://img.shields.io/discord/1425183662080659570?label=Discord&logo=discord">
+  </a>
+  <a href="https://matrix.to/#/#gardengate:matrix.org">
+    <img src="https://img.shields.io/matrix/gardengate:matrix.org?label=Matrix&logo=matrix">
+  </a>
+</p>
+
+## Roadmap
 ### What's done:
 * Offsets
 * Hosting servers
 * Joining
-* Custom unlocker mod that unlocks everything
+* Unlockers that unlock everything
 
 ### What's not done (TODO):
 * Player kicking/moderation
 * Bot support for gw1
-* Bfn [splitscreen fix without frosty](https://github.com/nocss42/GardenGate/pull/9)
-* Bfn unlockall
 * Make it so that only host can load into levels
 * [Closing a client](./Assets/client.webp) through the console instead of the game tricks the server into believing you are still connected, so attempting to load into another level causes the entire server to softlock
 * Fix Zombopolis last, several doorways in the center area are blocked for clients. Host and bots can pass through, but clients and their objects (e.g. bean bombs) cannot.
 * Fix Zomburbia Zombot fuses on last point unable to be broken
 
-### [Discord server](https://discord.gg/sEs9NcUrF9)
+## Directory structure
+| Directory | Description                 |
+|-----------|-----------------------------|
+| `Assets` | Related assets               |
+| `Container` | Container files           |
+| `DLL` | DLL injected to the game client |
+| `Docs` | Documentation                  |
+| `Launcher` | Launcher application       |
+| `Mods` | QoL mods                       |
 
 ## Credits
 
@@ -40,6 +55,8 @@ Experimental private servers for Plants vs. Zombies Garden Warfare 1,2 & Battle 
 
 - werzdragon
 
+- megadwarf47
+
 - puro420
 
 ### Third-Party
@@ -47,3 +64,4 @@ Following open-source projects were used:
 
 - [MinHook](https://github.com/TsudaKageyu/minhook)
 - [Kyber](https://github.com/ArmchairDevelopers/Kyber)
+- [ImGui](https://github.com/ocornut/imgui)

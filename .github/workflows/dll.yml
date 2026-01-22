@@ -23,6 +23,7 @@ jobs:
         shell: cmd
         run: |
           call "%ProgramFiles(x86)%\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+          cd DLL
           mkdir build
           cd build
           cmake .. -G "Visual Studio 17 2022"
@@ -33,4 +34,4 @@ jobs:
         with:
           name: DLL
           path: |
-            Build/Release/dinput8.dll
+            DLL/Build/Release/dinput8.dll
