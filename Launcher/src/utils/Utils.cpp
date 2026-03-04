@@ -184,10 +184,7 @@ namespace Utils {
 
 			if (!game.custom_args.empty()) argList.push_back(game.custom_args);
 
-<<<<<<< HEAD
-=======
-			if (!cfg.username.empty()) argList.push_back("-name " + cfg.username);
->>>>>>> 573bc4f (close steam for gw2, restore args in EA app, strip quotes)
+			if (!cfg.username.empty()) argList.push_back("-name \"" + cfg.username + "\"");
 			if (!cfg.server_ip.empty()) argList.push_back("-Client.ServerIp " + cfg.server_ip);
 			if (!cfg.password.empty()) argList.push_back("-Server.ServerPassword " + cfg.password);
 
