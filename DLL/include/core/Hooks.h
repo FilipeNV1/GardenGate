@@ -30,6 +30,7 @@ namespace fb
 
             g_game->logServerSpawnInfo(info);
             g_game->prepareServerSpawn(inst, info, spawnOverrides);
+            g_game->cleanupInvalidPeers();
             
             info.isCoop = false;
 
@@ -127,6 +128,7 @@ namespace fb
 
             g_game->logServerSpawnInfo(info);
             g_game->prepareServerSpawn(inst, info, spawnOverrides);
+            g_game->cleanupInvalidPeers();
 
             // GW2 doesn't force isCoop to false (unlike GW1)
 
@@ -266,6 +268,7 @@ namespace fb
             std::string_view levelName(levelSetup->Name);
 
             g_game->prepareServerSpawn(inst, info, spawnOverrides);
+            g_game->cleanupInvalidPeers();
 
             if (!levelName.starts_with("Levels/Level_Picnic_Splash/Level_Picnic_Splash")) {
                 GG_LOG(GG::LogLevel::Debug, "Forcing non-localhost");

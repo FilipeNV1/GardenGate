@@ -137,6 +137,21 @@ namespace GG
             }
         }
 
+        void cleanupInvalidPeers()
+        {
+            if (m_socketManager)
+            {
+                if (m_version == GameVersion::GW3)
+                {
+                    static_cast<fb::gw3::SocketManager*>(m_socketManager)->CleanupInvalidPeers();
+                }
+                else
+                {
+                    static_cast<fb::SocketManager*>(m_socketManager)->CleanupInvalidPeers();
+                }
+            }
+        }
+
         void logPeerJoined(const char* player)
         {
             GG_LOG(LogLevel::Info, "Peer joined - %s", player);

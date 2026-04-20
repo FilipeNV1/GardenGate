@@ -64,6 +64,25 @@ namespace fb
                 m_sockets.remove(socket);
             }
 
+            void CleanupInvalidSockets() 
+            {
+                auto it = m_sockets.begin();
+                while (it != m_sockets.end())
+                {
+                    auto* socket = *it;
+                    if (socket && !socket->IsPeerValid())
+                    {
+                        GG_LOG(GG::LogLevel::Info, "Removing invalid socket (unresponsive peer)");
+                        socket->Close();
+                        it = m_sockets.erase(it);
+                    }
+                    else
+                    {
+                        ++it;
+                    }
+                }
+            }
+
             ISocket* Connect(const char*, bool = false) override
             {
                 return nullptr;
@@ -106,12 +125,22 @@ namespace fb
 
     class SocketManager final : public detail::SocketManagerImpl<UDPSocket, IUDPSocketCreator, SocketManager>
     {
+    public:
+        void CleanupInvalidPeers()
+        {
+            CleanupInvalidSockets();
+        }
     };
 
     namespace gw3
     {
         class SocketManager final : public detail::SocketManagerImpl<gw3::UDPSocket, gw3::IUDPSocketCreator, gw3::SocketManager>
         {
+        public:
+            void CleanupInvalidPeers()
+            {
+                CleanupInvalidSockets();
+            }
         };
     }
 }

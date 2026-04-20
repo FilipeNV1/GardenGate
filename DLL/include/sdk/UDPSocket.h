@@ -30,6 +30,8 @@ namespace fb
             bool m_peerValid{false};
             ISocketAddress m_address{};
             ISocketAddress m_peerAddress{};
+            float m_lastActivityTime{0.0f};
+            float m_totalElapsedTime{0.0f};
 
         public:
             explicit UDPSocketImpl(ManagerT *creator) noexcept
@@ -102,6 +104,7 @@ namespace fb
 
                 m_peerAddress.set_data(&from, sizeof(from));
                 m_peerValid = true;
+                m_lastActivityTime = m_totalElapsedTime;
 
                 return ret;
             }
@@ -121,6 +124,7 @@ namespace fb
             {
                 m_peerAddress = addr;
                 m_peerValid = true;
+                m_lastActivityTime = m_totalElapsedTime;
             }
 
             ISocketAddress PeerAddress() const override
@@ -159,7 +163,17 @@ namespace fb
             }
 
             void ReceivePulse() override {}
-            void Pulse(float) override {}
+            void Pulse(float deltaSeconds) override
+            {
+                m_totalElapsedTime += deltaSeconds;
+                const float PEER_TIMEOUT_SECONDS = 30.0f; // unresponsive peer timeout threshold
+                if (m_peerValid && (m_totalElapsedTime - m_lastActivityTime) > PEER_TIMEOUT_SECONDS)
+                {
+                    GG_LOG(GG::LogLevel::Warning, "Socket peer timeout - marking invalid (no activity for %.1f seconds)", 
+                        m_totalElapsedTime - m_lastActivityTime);
+                    m_peerValid = false;
+                }
+            }
             void SendPulse() override {}
 
             intptr_t NativeSocket() const override
@@ -184,6 +198,11 @@ namespace fb
                 (void)address;
                 (void)blocking;
                 return false;
+            }
+
+            bool IsPeerValid() const
+            {
+                return m_peerValid;
             }
 
             bool Listen(const ISocketAddress &address, bool blocking = false) override
